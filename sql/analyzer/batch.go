@@ -39,6 +39,7 @@ type Batch struct {
 	Desc       string
 	Iterations int
 	Rules      []Rule
+	Skip       map[string]struct{}
 }
 
 // Eval executes the rules of the batch. On any error, the partially transformed node is returned along with the error.
@@ -88,6 +89,10 @@ func (b *Batch) Eval(ctx *sql.Context, a *Analyzer, n sql.Node, scope *Scope) (s
 func (b *Batch) evalOnce(ctx *sql.Context, a *Analyzer, n sql.Node, scope *Scope) (sql.Node, error) {
 	prev := n
 	for _, rule := range b.Rules {
+		if _, ok := b.Skip[rule.Name]; ok {
+			a.Log("Skipping rule %s", rule.Name)
+			continue
+		}
 		var err error
 		a.Log("Evaluating rule %s", rule.Name)
 		a.PushDebugContext(rule.Name)

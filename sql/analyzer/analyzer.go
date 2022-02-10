@@ -26,6 +26,7 @@ import (
 	"gopkg.in/src-d/go-errors.v1"
 
 	"github.com/dolthub/go-mysql-server/sql"
+	"github.com/dolthub/go-mysql-server/sql/plan"
 )
 
 const debugAnalyzerKey = "DEBUG_ANALYZER"
@@ -350,6 +351,72 @@ func (a *Analyzer) Analyze(ctx *sql.Context, n sql.Node, scope *Scope) (sql.Node
 	return a.analyzeWithSelector(ctx, n, scope, analyzeAll)
 }
 
+// PrepareQuery applies a partial set of transformations to a prepared plan.
+func (a *Analyzer) PrepareQuery(ctx *sql.Context, n sql.Node, scope *Scope) (sql.Node, error) {
+	skip := map[string]struct{}{
+		"in_subquery_indexes": {},
+		"track_process":       {},
+		"parallelize":         {},
+		"clear_warnings":      {},
+	}
+	return a.analyzeWithExceptor(ctx, n, scope, skip)
+}
+
+// AnalyzePrepared runs a partial rule set against a previously analyzed plan.
+// - resolve the most recent table roots
+// - apply indexes after BindVar substitution
+// - add exchange nodes
+func (a *Analyzer) AnalyzePrepared(ctx *sql.Context, before sql.Node, scope *Scope) (sql.Node, error) {
+	batch := Batch{
+		Desc:       "prepared re-analysis",
+		Iterations: 1,
+		Rules: []Rule{
+			// once before
+			{"strip_decorations", stripDecorations},
+			{"simplify_resolved_nodes", unresolveTables},
+
+			// default
+			// TODO iterate defaults?
+			{"resolve_databases", resolveDatabases},
+			{"resolve_tables", resolveTables},
+
+			// once after
+			{"subquery_indexes", applyIndexesFromOuterScope},
+			{"in_subquery_indexes", applyIndexesForSubqueryComparisons},
+			{"pushdown_filters", pushdownFilters},
+
+			// once after
+			{"track_process", trackProcess},
+			{"parallelize", parallelize},
+			{"clear_warnings", clearWarnings},
+		},
+	}
+
+	span, ctx := ctx.Span("analyze", opentracing.Tags{
+		//"plan": , n.String(),
+	})
+
+	var err error
+	a.Log("starting analysis of node of type: %T", before)
+	a.PushDebugContext(batch.Desc)
+	after, err := batch.Eval(ctx, a, before, scope)
+	if err != nil {
+		a.Log("Encountered error: %v", err)
+		a.PopDebugContext()
+		return before, err
+	}
+	a.PopDebugContext()
+
+	defer func() {
+		if after != nil {
+			span.SetTag("IsResolved", after.Resolved())
+		}
+		span.Finish()
+	}()
+
+	return after, err
+}
+
 func (a *Analyzer) analyzeThroughBatch(ctx *sql.Context, n sql.Node, scope *Scope, until string) (sql.Node, error) {
 	stop := false
 	return a.analyzeWithSelector(ctx, n, scope, func(desc string) bool {
@@ -395,6 +462,35 @@ func (a *Analyzer) analyzeWithSelector(ctx *sql.Context, n sql.Node, scope *Scop
 	return n, err
 }
 
+func (a *Analyzer) analyzeWithExceptor(ctx *sql.Context, n sql.Node, scope *Scope, except map[string]struct{}) (sql.Node, error) {
+	span, ctx := ctx.Span("analyze", opentracing.Tags{
+		//"plan": , n.String(),
+	})
+
+	var err error
+	a.Log("starting analysis of node of type: %T", n)
+	for _, batch := range a.Batches {
+		batch.Skip = except
+		a.PushDebugContext(batch.Desc)
+		n, err = batch.Eval(ctx, a, n, scope)
+		if err != nil {
+			a.Log("Encountered error: %v", err)
+			a.PopDebugContext()
+			return n, err
+		}
+		a.PopDebugContext()
+	}
+
+	defer func() {
+		if n != nil {
+			span.SetTag("IsResolved", n.Resolved())
+		}
+		span.Finish()
+	}()
+
+	return n, err
+}
+
 func (a *Analyzer) analyzeStartingAtBatch(ctx *sql.Context, n sql.Node, scope *Scope, startAt string) (sql.Node, error) {
 	start := false
 	return a.analyzeWithSelector(ctx, n, scope, func(desc string) bool {
@@ -405,5 +501,25 @@ func (a *Analyzer) analyzeStartingAtBatch(ctx *sql.Context, n sql.Node, scope *S
 			return true
 		}
 		return false
+	})
+}
+
+func DeepCopyNode(node sql.Node) (sql.Node, error) {
+	return plan.TransformUp(node, func(n sql.Node) (sql.Node, error) {
+		var err error
+		if v, ok := n.(sql.Expressioner); ok {
+			newExpressions := make([]sql.Expression, len(v.Expressions()))
+			for i, e := range v.Expressions() {
+				newExpressions[i], err = e.WithChildren(e.Children()...)
+				if err != nil {
+					return nil, err
+				}
+			}
+			n, err = v.WithExpressions(newExpressions...)
+			if err != nil {
+				return nil, err
+			}
+		}
+		return n.WithChildren(n.Children()...)
 	})
 }

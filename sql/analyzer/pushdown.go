@@ -424,8 +424,13 @@ func pushdownFiltersToTable(
 
 	var newTableNode sql.Node = tableNode
 
+	ft, ok := table.(sql.FilteredTable)
+	if !ok {
+		return tableNode, nil
+	}
+
 	// Push any filters for this table onto the table itself if it's a sql.FilteredTable
-	if ft, ok := table.(sql.FilteredTable); ok && len(filters.availableFiltersForTable(ctx, tableNode.Name())) > 0 {
+	if len(filters.availableFiltersForTable(ctx, tableNode.Name())) > 0 {
 		tableFilters := filters.availableFiltersForTable(ctx, tableNode.Name())
 		handled := ft.HandledFilters(normalizeExpressions(ctx, tableAliases, tableFilters...))
 		filters.markFiltersHandled(handled...)
@@ -699,4 +704,86 @@ func (es exprSlice) String() string {
 		sb.WriteString(e.String())
 	}
 	return sb.String()
+}
+
+// stripDecorations removes *plan.DecoratedNode that wrap plan.ResolvedTable instances.
+// Without this step, some prepared statement reanalysis rules fail to identify
+// filter-table relationships.
+func stripDecorations(ctx *sql.Context, a *Analyzer, node sql.Node, scope *Scope) (sql.Node, error) {
+	return plan.TransformUp(node, func(node sql.Node) (sql.Node, error) {
+		switch n := node.(type) {
+		case *plan.DecoratedNode:
+			return n.Child, nil
+		default:
+			return node, nil
+		}
+	})
+
+}
+
+// unresolveTables is a quick and dirty way to make prepared statement reanalysis
+// resolve the most up-to-date table roots.
+func unresolveTables(ctx *sql.Context, a *Analyzer, node sql.Node, scope *Scope) (sql.Node, error) {
+	return plan.TransformUpCtx(node, nil, func(c plan.TransformContext) (sql.Node, error) {
+		switch n := c.Node.(type) {
+		case *plan.ResolvedTable:
+			var table string
+			if n.Table != nil {
+				table = n.Table.Name()
+			}
+			var db string
+			if n.Database != nil {
+				db = n.Database.Name()
+			}
+			//projections = resolvedTableProjections(n)
+
+			rt, err := resolveTable(ctx, plan.NewUnresolvedTable(table, db), a)
+			if err != nil {
+				return nil, err
+			}
+
+			new := applyProjections(n, rt.(*plan.ResolvedTable))
+			return new, nil
+		default:
+			return c.Node, nil
+		}
+	})
+}
+
+// applyProjections
+func applyProjections(from, to *plan.ResolvedTable) sql.Node {
+	var fromTable sql.Table
+	switch t := from.Table.(type) {
+	case sql.TableWrapper:
+		fromTable = t.Underlying()
+	case sql.Table:
+		fromTable = t
+	default:
+		return to
+	}
+
+	pt, ok := fromTable.(sql.ProjectedTable)
+	if !ok {
+		return to
+	}
+
+	projections := pt.Projections()
+
+	var toTable sql.Table
+	switch t := to.Table.(type) {
+	case sql.TableWrapper:
+		toTable = t.Underlying()
+	case sql.Table:
+		toTable = t
+	default:
+		return to
+	}
+
+	pt, ok = toTable.(sql.ProjectedTable)
+	if !ok {
+		return to
+	}
+
+	newTable := pt.WithProjection(projections)
+	return plan.NewResolvedTable(newTable, to.Database, to.AsOf)
 }

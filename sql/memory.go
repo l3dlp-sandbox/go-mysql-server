@@ -190,7 +190,7 @@ func (m *MemoryManager) NewRowsCache() (RowsCache, DisposeFunc) {
 func (m *MemoryManager) addCache(c Disposable) (pos uint64) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.token++
+	defer func() { m.token++ }()
 	m.caches[m.token] = c
 	return m.token
 }

@@ -830,6 +830,16 @@ func (t *FilteredTable) WithProjection(colNames []string) sql.Table {
 	return &nt
 }
 
+// Projections implements sql.ProjectedTable
+func (t *FilteredTable) Projections() []string {
+	//projections := make([]sql.Expression, len(t.projection))
+	//for i, c := range t.projection {
+	//	col := t.schema.Schema[i]
+	//	projections[i] = expression.NewGetFieldWithTable(t.columns[i], col.Type, t.name, c, col.Nullable)
+	//}
+	return t.projection
+}
+
 // WithProjection implements the sql.ProjectedTable interface.
 func (t *Table) WithProjection(colNames []string) sql.Table {
 	if len(colNames) == 0 {
@@ -846,6 +856,17 @@ func (t *Table) WithProjection(colNames []string) sql.Table {
 	nt.projection = colNames
 
 	return &nt
+}
+
+// Projections implements sql.ProjectedTable
+func (t *Table) Projections() []string {
+	//projections := make([]sql.Expression, len(t.projection))
+	//for i, c := range t.projection {
+	//	col := t.schema.Schema[i]
+	//	projections[i] = expression.NewGetFieldWithTable(t.columns[i], col.Type, t.name, c, col.Nullable)
+	//}
+	//return projections
+	return t.projection
 }
 
 func (t *Table) columnIndexes(colNames []string) ([]int, error) {

@@ -176,6 +176,10 @@ func transformUpWithOpaque(node sql.Node, f sql.TransformNodeFunc) (sql.Node, er
 // schemaLength returns the length of a node's schema without actually accessing it. Useful when a node isn't yet
 // resolved, so Schema() could fail.
 func schemaLength(node sql.Node) int {
+	if node.Resolved() {
+		// a resolved node might have folded projections into a table scan
+		return len(node.Schema())
+	}
 	schemaLen := 0
 	plan.Inspect(node, func(node sql.Node) bool {
 		switch node := node.(type) {
