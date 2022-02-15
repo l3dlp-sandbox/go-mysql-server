@@ -108,14 +108,14 @@ func TestLocks(t *testing.T) {
 	engine := sqle.New(analyzer, new(sqle.Config))
 
 	ctx := enginetest.NewContext(enginetest.NewDefaultMemoryHarness()).WithCurrentDB("db")
-	sch, iter, err := engine.Query(ctx, 0, "LOCK TABLES t1 READ, t2 WRITE, t3 READ")
+	sch, iter, err := engine.Query(ctx, "LOCK TABLES t1 READ, t2 WRITE, t3 READ")
 	require.NoError(err)
 
 	_, err = sql.RowIterToRows(ctx, sch, iter)
 	require.NoError(err)
 
 	ctx = enginetest.NewContext(enginetest.NewDefaultMemoryHarness()).WithCurrentDB("db")
-	sch, iter, err = engine.Query(ctx, 0, "UNLOCK TABLES")
+	sch, iter, err = engine.Query(ctx, "UNLOCK TABLES")
 	require.NoError(err)
 
 	_, err = sql.RowIterToRows(ctx, sch, iter)
@@ -145,7 +145,7 @@ func TestRootSpanFinish(t *testing.T) {
 	ctx := harness.NewContext()
 	sql.WithRootSpan(fakeSpan)(ctx)
 
-	sch, iter, err := e.Query(ctx, 0, "SELECT 1")
+	sch, iter, err := e.Query(ctx, "SELECT 1")
 	require.NoError(t, err)
 
 	_, err = sql.RowIterToRows(ctx, sch, iter)

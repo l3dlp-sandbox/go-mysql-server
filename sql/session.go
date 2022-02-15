@@ -120,6 +120,8 @@ type Session interface {
 	// SetViewRegistry sets the view registry for this session. Integrators should set a view registry if their database
 	// doesn't implement ViewDatabase and they want views created to persist across sessions.
 	SetViewRegistry(*ViewRegistry)
+	// WithConnectionId attaches the handler's connection ID to a new sql.Session separate from the session builder
+	WithConnectionId(connId uint32) Session
 }
 
 // PersistableSession supports serializing/deserializing global system variables/
@@ -290,6 +292,12 @@ func (s *BaseSession) SetCurrentDatabase(dbName string) {
 
 // ID implements the Session interface.
 func (s *BaseSession) ID() uint32 { return s.id }
+
+func (s *BaseSession) WithConnectionId(id uint32) Session {
+	ns := *s
+	ns.id = id
+	return &ns
+}
 
 // Warn stores the warning in the session.
 func (s *BaseSession) Warn(warn *Warning) {

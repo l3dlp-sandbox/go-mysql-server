@@ -108,8 +108,6 @@ func (h *Handler) ComPrepare(c *mysql.Conn, query string) ([]*query.Field, error
 		return nil, err
 	}
 
-	h.e.CachePreparedStmt(c.ConnectionID, analyzed, query)
-
 	if sql.IsOkResultSchema(analyzed.Schema()) {
 		return nil, nil
 	}
@@ -144,7 +142,7 @@ func (h *Handler) ConnectionClosed(c *mysql.Conn) {
 		logrus.Errorf("unable to unlock tables on session close: %s", err)
 	}
 
-	h.e.CloseSession(c.ConnectionID)
+	h.e.CloseSession(ctx)
 
 	logrus.WithField(sqle.ConnectionIdLogField, c.ConnectionID).Infof("ConnectionClosed")
 }
@@ -337,7 +335,7 @@ func (h *Handler) doQuery(
 	oCtx := ctx
 	eg, ctx := ctx.NewErrgroup()
 
-	schema, rows, err := h.e.QueryNodeWithBindings(ctx, c.ConnectionID, query, parsed, sqlBindings)
+	schema, rows, err := h.e.QueryNodeWithBindings(ctx, query, parsed, sqlBindings)
 	if err != nil {
 		ctx.GetLogger().WithError(err).Warn("error running query")
 		return remainder, err

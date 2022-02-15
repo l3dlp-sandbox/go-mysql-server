@@ -135,33 +135,28 @@ func (e *Engine) PrepareQuery(
 	if err != nil {
 		return nil, err
 	}
-	return e.Analyzer.PrepareQuery(ctx, parsed, nil)
+
+	node, err := e.Analyzer.PrepareQuery(ctx, parsed, nil)
+	if err != nil {
+		return nil, err
+	}
+	e.cachePreparedStmt(ctx, node, query)
+	return node, nil
 }
 
 // Query executes a query. If parsed is non-nil, it will be used instead of parsing the query from text.
-func (e *Engine) Query(ctx *sql.Context, connId uint32, query string) (sql.Schema, sql.RowIter, error) {
-	return e.QueryWithBindings(ctx, connId, query, nil)
+func (e *Engine) Query(ctx *sql.Context, query string) (sql.Schema, sql.RowIter, error) {
+	return e.QueryWithBindings(ctx, query, nil)
 }
 
 // QueryWithBindings executes the query given with the bindings provided
-func (e *Engine) QueryWithBindings(
-	ctx *sql.Context,
-	connId uint32,
-	query string,
-	bindings map[string]sql.Expression,
-) (sql.Schema, sql.RowIter, error) {
-	return e.QueryNodeWithBindings(ctx, connId, query, nil, bindings)
+func (e *Engine) QueryWithBindings(ctx *sql.Context, query string, bindings map[string]sql.Expression) (sql.Schema, sql.RowIter, error) {
+	return e.QueryNodeWithBindings(ctx, query, nil, bindings)
 }
 
 // QueryNodeWithBindings executes the query given with the bindings provided. If parsed is non-nil, it will be used
 // instead of parsing the query from text.
-func (e *Engine) QueryNodeWithBindings(
-	ctx *sql.Context,
-	connId uint32,
-	query string,
-	parsed sql.Node,
-	bindings map[string]sql.Expression,
-) (sql.Schema, sql.RowIter, error) {
+func (e *Engine) QueryNodeWithBindings(ctx *sql.Context, query string, parsed sql.Node, bindings map[string]sql.Expression) (sql.Schema, sql.RowIter, error) {
 	var (
 		analyzed sql.Node
 		iter     sql.RowIter
@@ -186,10 +181,11 @@ func (e *Engine) QueryNodeWithBindings(
 	}
 
 	// prepared statement, short circuit optimizer
-	if query == e.PreparedData[connId].Query && e.PreparedData[connId].Node != nil {
+	ctx.Session.ID()
+	if query == e.PreparedQuery(ctx) && e.PreparedNode(ctx) != nil {
 		ctx.GetLogger().Tracef("optimizing prepared plan for query: %s", query)
 
-		analyzed = e.PreparedData[connId].Node
+		analyzed = e.PreparedNode(ctx)
 		analyzed, err = analyzer.DeepCopyNode(analyzed)
 
 		if len(bindings) > 0 {
@@ -246,15 +242,22 @@ func (e *Engine) QueryNodeWithBindings(
 	return analyzed.Schema(), iter, nil
 }
 
-func (e *Engine) CachePreparedStmt(connId uint32, analyzed sql.Node, query string) {
-	e.PreparedData[connId] = PreparedData{
+func (e *Engine) cachePreparedStmt(ctx *sql.Context, analyzed sql.Node, query string) {
+	e.PreparedData[ctx.Session.ID()] = PreparedData{
 		Query: query,
 		Node:  analyzed,
 	}
 }
 
-func (e *Engine) CloseSession(connId uint32) {
-	delete(e.PreparedData, connId)
+func (e *Engine) PreparedQuery(ctx *sql.Context) string {
+	return e.PreparedData[ctx.Session.ID()].Query
+}
+func (e *Engine) PreparedNode(ctx *sql.Context) sql.Node {
+	return e.PreparedData[ctx.Session.ID()].Node
+}
+
+func (e *Engine) CloseSession(ctx *sql.Context) {
+	delete(e.PreparedData, ctx.Session.ID())
 }
 
 // allNode2 returns whether all the nodes in the tree implement Node2.

@@ -325,7 +325,7 @@ func TestReorderProjectionUnresolvedChild(t *testing.T) {
 	require.True(result.Resolved())
 }
 
-func TestDeppCopyNode(t *testing.T) {
+func TestDeepCopyNode(t *testing.T) {
 	node := plan.NewProject(
 		[]sql.Expression{
 			expression.NewStar(),

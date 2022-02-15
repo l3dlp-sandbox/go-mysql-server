@@ -104,10 +104,25 @@ func TestSpatialQueries(t *testing.T) {
 	}
 }
 
-// TestQueriesPrepared runs the canonical test queries against a single threaded index enabled harness
+// TestQueriesPrepared runs the canonical test queries against the gamut of thread, index and partition options
 // with prepared statement caching enabled.
 func TestQueriesPrepared(t *testing.T) {
-	enginetest.TestQueriesPrepared(t, enginetest.NewMemoryHarness("simple", 1, testNumPartitions, true, nil))
+	for _, numPartitions := range numPartitionsVals {
+		for _, indexBehavior := range indexBehaviors {
+			for _, parallelism := range parallelVals {
+				if parallelism == 1 && numPartitions == testNumPartitions && indexBehavior.name == "nativeIndexes" {
+					// This case is covered by TestQueriesSimple
+					continue
+				}
+				testName := fmt.Sprintf("partitions=%d,indexes=%v,parallelism=%v", numPartitions, indexBehavior.name, parallelism)
+				harness := enginetest.NewMemoryHarness(testName, parallelism, numPartitions, indexBehavior.nativeIndexes, indexBehavior.driverInitializer)
+
+				t.Run(testName, func(t *testing.T) {
+					enginetest.TestQueriesPrepared(t, harness)
+				})
+			}
+		}
+	}
 }
 
 // TestQueriesSimple runs the canonical test queries against a single threaded index enabled harness.
@@ -600,6 +615,10 @@ func TestPersist(t *testing.T) {
 		return persistedSess
 	}
 	enginetest.TestPersist(t, enginetest.NewDefaultMemoryHarness(), newSess)
+}
+
+func TestPrepared(t *testing.T) {
+	enginetest.TestPrepared(t, enginetest.NewDefaultMemoryHarness())
 }
 
 func mergableIndexDriver(dbs []sql.Database) sql.IndexDriver {
