@@ -42,7 +42,7 @@ func TestHandlerOutput(t *testing.T) {
 		NewSessionManager(
 			testSessionBuilder,
 			opentracing.NoopTracer{},
-			func(db string) bool { return db == "test" },
+			func(ctx *sql.Context, db string) bool { return db == "test" },
 			sql.NewMemoryManager(nil),
 			sqle.NewProcessList(),
 			"foo",
@@ -153,7 +153,7 @@ func TestHandlerComPrepare(t *testing.T) {
 		NewSessionManager(
 			testSessionBuilder,
 			opentracing.NoopTracer{},
-			func(db string) bool { return db == "test" },
+			func(ctx *sql.Context, db string) bool { return db == "test" },
 			sql.NewMemoryManager(nil),
 			sqle.NewProcessList(),
 			"foo",
@@ -211,7 +211,7 @@ func TestHandlerComPrepareExecute(t *testing.T) {
 		NewSessionManager(
 			testSessionBuilder,
 			opentracing.NoopTracer{},
-			func(db string) bool { return db == "test" },
+			func(ctx *sql.Context, db string) bool { return db == "test" },
 			sql.NewMemoryManager(nil),
 			sqle.NewProcessList(),
 			"foo",
@@ -320,7 +320,7 @@ func TestServerEventListener(t *testing.T) {
 				return sql.NewBaseSessionWithClientServer(addr, sql.Client{Capabilities: conn.Capabilities}, conn.ConnectionID), nil
 			},
 			opentracing.NoopTracer{},
-			func(db string) bool { return db == "test" },
+			func(ctx *sql.Context, db string) bool { return db == "test" },
 			e.MemoryManager,
 			e.ProcessList,
 			"foo",
@@ -401,7 +401,7 @@ func TestHandlerKill(t *testing.T) {
 				return sql.NewBaseSessionWithClientServer(addr, sql.Client{Capabilities: conn.Capabilities}, conn.ConnectionID), nil
 			},
 			opentracing.NoopTracer{},
-			func(db string) bool { return db == "test" },
+			func(ctx *sql.Context, db string) bool { return db == "test" },
 			e.MemoryManager,
 			e.ProcessList,
 			"foo",
@@ -483,7 +483,7 @@ func TestHandlerTimeout(t *testing.T) {
 	timeOutHandler := NewHandler(
 		e, NewSessionManager(testSessionBuilder,
 			opentracing.NoopTracer{},
-			func(db string) bool { return db == "test" },
+			func(ctx *sql.Context, db string) bool { return db == "test" },
 			sql.NewMemoryManager(nil),
 			sqle.NewProcessList(),
 			"foo"),
@@ -495,7 +495,7 @@ func TestHandlerTimeout(t *testing.T) {
 	noTimeOutHandler := NewHandler(
 		e2, NewSessionManager(testSessionBuilder,
 			opentracing.NoopTracer{},
-			func(db string) bool { return db == "test" },
+			func(ctx *sql.Context, db string) bool { return db == "test" },
 			sql.NewMemoryManager(nil),
 			sqle.NewProcessList(),
 			"foo"),
@@ -550,7 +550,7 @@ func TestOkClosedConnection(t *testing.T) {
 		NewSessionManager(
 			testSessionBuilder,
 			opentracing.NoopTracer{},
-			func(db string) bool { return db == "test" },
+			func(ctx *sql.Context, db string) bool { return db == "test" },
 			sql.NewMemoryManager(nil),
 			sqle.NewProcessList(),
 			"foo",
@@ -704,7 +704,7 @@ func TestHandlerFoundRowsCapabilities(t *testing.T) {
 		NewSessionManager(
 			testSessionBuilder,
 			opentracing.NoopTracer{},
-			func(db string) bool { return db == "test" },
+			func(ctx *sql.Context, db string) bool { return db == "test" },
 			sql.NewMemoryManager(nil),
 			sqle.NewProcessList(),
 			"foo",
