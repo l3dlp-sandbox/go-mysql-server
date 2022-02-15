@@ -124,7 +124,7 @@ func (e *Engine) AnalyzeQuery(
 	return e.Analyzer.Analyze(ctx, parsed, nil)
 }
 
-// PrepareQuery analyzes a query and returns its Schema.
+// PrepareQuery returns a partially analyzed query
 func (e *Engine) PrepareQuery(
 	ctx *sql.Context,
 	query string,
@@ -198,8 +198,7 @@ func (e *Engine) QueryNodeWithBindings(
 		}
 		ctx.GetLogger().Tracef("plan before re-opt: %s", analyzed.String())
 
-		analyzed, err = e.Analyzer.
-			AnalyzePrepared(ctx, analyzed, nil)
+		analyzed, err = e.Analyzer.AnalyzePrepared(ctx, analyzed, nil)
 		if err != nil {
 			return nil, nil, err
 		}

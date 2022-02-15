@@ -73,7 +73,7 @@ func TestSpatialQueries(t *testing.T, harness Harness) {
 	}
 }
 
-func TestPreparedQueries(t *testing.T, harness Harness) {
+func TestQueriesPrepared(t *testing.T, harness Harness) {
 	engine := NewEngine(t, harness)
 	defer engine.Close()
 

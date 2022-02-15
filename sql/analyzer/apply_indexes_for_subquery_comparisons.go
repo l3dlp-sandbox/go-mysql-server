@@ -117,13 +117,3 @@ func expressionHasGetFieldReferenceBetween(e sql.Expression, low, high int) bool
 	})
 	return found
 }
-
-//func simplifyIndexedSubquery(ctx *sql.Context, a *Analyzer, n sql.Node, scope *Scope) (sql.Node, error) {
-//	return plan.TransformUpCtx(n, nil, func(ctx plan.TransformContext) (sql.Node, error) {
-//		switch n := ctx.Node.(type) {
-//		case *plan.IndexedInSubqueryFilter:
-//			return plan.NewInSubquery(n.Child, n.Subquery), nil
-//		}
-//		return node, nil
-//	})
-//}

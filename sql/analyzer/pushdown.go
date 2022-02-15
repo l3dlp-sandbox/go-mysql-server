@@ -722,7 +722,8 @@ func stripDecorations(ctx *sql.Context, a *Analyzer, node sql.Node, scope *Scope
 }
 
 // unresolveTables is a quick and dirty way to make prepared statement reanalysis
-// resolve the most up-to-date table roots.
+// resolve the most up-to-date table roots while preserving projections folded into
+// table scans.
 func unresolveTables(ctx *sql.Context, a *Analyzer, node sql.Node, scope *Scope) (sql.Node, error) {
 	return plan.TransformUpCtx(node, nil, func(c plan.TransformContext) (sql.Node, error) {
 		switch n := c.Node.(type) {
@@ -735,7 +736,6 @@ func unresolveTables(ctx *sql.Context, a *Analyzer, node sql.Node, scope *Scope)
 			if n.Database != nil {
 				db = n.Database.Name()
 			}
-			//projections = resolvedTableProjections(n)
 
 			rt, err := resolveTable(ctx, plan.NewUnresolvedTable(table, db), a)
 			if err != nil {
@@ -750,7 +750,7 @@ func unresolveTables(ctx *sql.Context, a *Analyzer, node sql.Node, scope *Scope)
 	})
 }
 
-// applyProjections
+// applyProjections transfers projections between table scans
 func applyProjections(from, to *plan.ResolvedTable) sql.Node {
 	var fromTable sql.Table
 	switch t := from.Table.(type) {

@@ -821,7 +821,7 @@ func (t *FilteredTable) WithFilters(ctx *sql.Context, filters []sql.Expression) 
 	return &nt
 }
 
-// WithFilters implements the sql.FilteredTable interface.
+// WithProjection implements sql.ProjectedTable
 func (t *FilteredTable) WithProjection(colNames []string) sql.Table {
 	table := t.Table.WithProjection(colNames)
 
@@ -832,15 +832,10 @@ func (t *FilteredTable) WithProjection(colNames []string) sql.Table {
 
 // Projections implements sql.ProjectedTable
 func (t *FilteredTable) Projections() []string {
-	//projections := make([]sql.Expression, len(t.projection))
-	//for i, c := range t.projection {
-	//	col := t.schema.Schema[i]
-	//	projections[i] = expression.NewGetFieldWithTable(t.columns[i], col.Type, t.name, c, col.Nullable)
-	//}
 	return t.projection
 }
 
-// WithProjection implements the sql.ProjectedTable interface.
+// WithProjection implements sql.ProjectedTable
 func (t *Table) WithProjection(colNames []string) sql.Table {
 	if len(colNames) == 0 {
 		return t
@@ -860,12 +855,6 @@ func (t *Table) WithProjection(colNames []string) sql.Table {
 
 // Projections implements sql.ProjectedTable
 func (t *Table) Projections() []string {
-	//projections := make([]sql.Expression, len(t.projection))
-	//for i, c := range t.projection {
-	//	col := t.schema.Schema[i]
-	//	projections[i] = expression.NewGetFieldWithTable(t.columns[i], col.Type, t.name, c, col.Nullable)
-	//}
-	//return projections
 	return t.projection
 }
 

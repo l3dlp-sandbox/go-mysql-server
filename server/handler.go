@@ -95,16 +95,13 @@ func (h *Handler) ComInitDB(c *mysql.Conn, schemaName string) error {
 	return h.sm.SetDB(c, schemaName)
 }
 
-// ComPrepare parses and partially analyzes a prepared statement's plan
+// ComPrepare parses, partially analyzes, and caches a prepared statement's plan
+// with the given [c.ConnectionID].
 func (h *Handler) ComPrepare(c *mysql.Conn, query string) ([]*query.Field, error) {
 	ctx, err := h.sm.NewContextWithQuery(c, query)
 	if err != nil {
 		return nil, err
 	}
-	//parsed, err := parse.Parse(ctx, query)
-	//if err != nil {
-	//	return nil, err
-	//}
 
 	analyzed, err := h.e.PrepareQuery(ctx, query)
 	if err != nil {
@@ -147,7 +144,6 @@ func (h *Handler) ConnectionClosed(c *mysql.Conn) {
 		logrus.Errorf("unable to unlock tables on session close: %s", err)
 	}
 
-	// cleanup PreparedData
 	h.e.CloseSession(c.ConnectionID)
 
 	logrus.WithField(sqle.ConnectionIdLogField, c.ConnectionID).Infof("ConnectionClosed")

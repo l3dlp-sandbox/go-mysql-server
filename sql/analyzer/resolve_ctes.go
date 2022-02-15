@@ -178,6 +178,7 @@ func transformUpWithOpaque(node sql.Node, f sql.TransformNodeFunc) (sql.Node, er
 func schemaLength(node sql.Node) int {
 	if node.Resolved() {
 		// a resolved node might have folded projections into a table scan
+		// and lack the distinct top-level nodes below
 		return len(node.Schema())
 	}
 	schemaLen := 0
