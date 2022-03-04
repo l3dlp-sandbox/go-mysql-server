@@ -347,20 +347,21 @@ func analyzeAll(string) bool { return true }
 // Analyze applies the transformation rules to the node given. In the case of an error, the last successfully
 // transformed node is returned along with the error.
 func (a *Analyzer) Analyze(ctx *sql.Context, n sql.Node, scope *Scope) (sql.Node, error) {
-	rule_sec := func(n string) bool {
+	rule_sel := func(n string) bool {
 		switch n {
+		// prepared statement rules are incompatible with default rules
 		case "strip_decorations",
 		    "simplify_resolved_nodes":
 		    	return false
 		}
 		return true
 	}
-	return a.analyzeWithSelector(ctx, n, scope, analyzeAll, rule_sec)
+	return a.analyzeWithSelector(ctx, n, scope, analyzeAll, rule_sel)
 }
 
 // PrepareQuery applies a partial set of transformations to a prepared plan.
 func (a *Analyzer) PrepareQuery(ctx *sql.Context, n sql.Node, scope *Scope) (sql.Node, error) {
-	skip := func(n string) bool {
+	rule_sel := func(n string) bool {
 		switch n {
 		case "in_subquery_indexes",
 			"track_process",
@@ -370,7 +371,7 @@ func (a *Analyzer) PrepareQuery(ctx *sql.Context, n sql.Node, scope *Scope) (sql
 		}
 		return true
 	}
-	return a.analyzeWithSelector(ctx, n, scope, analyzeAll, skip)
+	return a.analyzeWithSelector(ctx, n, scope, analyzeAll, rule_sel)
 }
 
 // AnalyzePrepared runs a partial rule set against a previously analyzed plan.

@@ -124,6 +124,14 @@ func (a *Arithmetic) IsNullable() bool {
 
 // Type returns the greatest type for given operation.
 func (a *Arithmetic) Type() sql.Type {
+	// TODO what if both BindVars?
+	if _, ok := a.Right.Type().(sql.DeferredType); ok {
+		return a.Right.Type()
+	}
+	if _, ok := a.Left.Type().(sql.DeferredType); ok {
+		return a.Left.Type()
+	}
+
 	switch strings.ToLower(a.Op) {
 	case sqlparser.PlusStr, sqlparser.MinusStr, sqlparser.MultStr, sqlparser.DivStr:
 		if isInterval(a.Left) || isInterval(a.Right) {

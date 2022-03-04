@@ -41,7 +41,7 @@ func ApplyBindings(n sql.Node, bindings map[string]sql.Expression) (sql.Node, er
 			if !found {
 				return expr, nil
 			}
-			return expression.NewGetFieldWithTable(e.Index(), val.Type(), e.Table(), e.Name(), val.IsNullable()), nil
+			return expression.NewGetFieldWithTable(e.Index(), val.Type().Promote(), e.Table(), e.Name(), val.IsNullable()), nil
 		}
 		return expr, nil
 	}
