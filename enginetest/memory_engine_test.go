@@ -110,10 +110,6 @@ func TestQueriesPrepared(t *testing.T) {
 	for _, numPartitions := range numPartitionsVals {
 		for _, indexBehavior := range indexBehaviors {
 			for _, parallelism := range parallelVals {
-				if parallelism == 1 && numPartitions == testNumPartitions && indexBehavior.name == "nativeIndexes" {
-					// This case is covered by TestQueriesSimple
-					continue
-				}
 				testName := fmt.Sprintf("partitions=%d,indexes=%v,parallelism=%v", numPartitions, indexBehavior.name, parallelism)
 				harness := enginetest.NewMemoryHarness(testName, parallelism, numPartitions, indexBehavior.nativeIndexes, indexBehavior.driverInitializer)
 
@@ -131,13 +127,13 @@ func TestQueriesSimple(t *testing.T) {
 }
 
 // Convenience test for debugging a single query. Unskip and set to the desired query.
-func TestSingleQuery(t *testing.T) {
-	t.Skip()
+func 	TestSingleQuery(t *testing.T) {
+	//t.Skip()
 
 	var test enginetest.QueryTest
 	test = enginetest.QueryTest{
 		Query: `
-select * from mytable`,
+SELECT TRIM("   foo   ")`,
 		Expected: []sql.Row{
 			{1, "first row"},
 			{2, "second row"},

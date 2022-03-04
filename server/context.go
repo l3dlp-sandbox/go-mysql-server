@@ -105,7 +105,7 @@ func (s *SessionManager) NewSession(ctx context.Context, conn *mysql.Conn) error
 		return err
 	}
 
-	session = session.WithConnectionId(conn.ConnectionID)
+	session.SetConnectionId(conn.ConnectionID)
 
 	s.sessions[conn.ConnectionID] = &managedSession{session, conn}
 

@@ -51,6 +51,8 @@ var OnceBeforeDefault = []Rule{
 	{"validate_read_only_transaction", validateReadOnlyTransaction},
 	{"validate_database_set", validateDatabaseSet},
 	{"check_privileges", checkPrivileges}, // Ensure that checking privileges happens after db & table resolution
+	{"strip_decorations", stripDecorations},
+	{"simplify_resolved_nodes", unresolveTables},
 }
 
 // DefaultRules to apply when analyzing nodes.

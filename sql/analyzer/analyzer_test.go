@@ -17,6 +17,7 @@ package analyzer
 import (
 	"context"
 	"fmt"
+	"github.com/dolthub/go-mysql-server/sql/expression/function/aggregation"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -326,59 +327,108 @@ func TestReorderProjectionUnresolvedChild(t *testing.T) {
 }
 
 func TestDeepCopyNode(t *testing.T) {
-	node := plan.NewProject(
-		[]sql.Expression{
-			expression.NewStar(),
-		},
-		plan.NewNaturalJoin(
-			plan.NewInnerJoin(
-				plan.NewUnresolvedTable("mytable", ""),
-				plan.NewUnresolvedTable("mytable2", ""),
-				expression.NewEquals(
-					expression.NewUnresolvedQualifiedColumn("mytable", "i"),
-					expression.NewUnresolvedQualifiedColumn("mytable2", "i2"),
+	tests := []struct{
+		node sql.Node
+		exp sql.Node
+	}{
+		{
+			node: plan.NewProject(
+				[]sql.Expression{
+					expression.NewLiteral(1, sql.Int64),
+				},
+				plan.NewNaturalJoin(
+					plan.NewInnerJoin(
+						plan.NewUnresolvedTable("mytable", ""),
+						plan.NewUnresolvedTable("mytable2", ""),
+						expression.NewEquals(
+							expression.NewUnresolvedQualifiedColumn("mytable", "i"),
+							expression.NewUnresolvedQualifiedColumn("mytable2", "i2"),
+						),
+					),
+					plan.NewFilter(
+						expression.NewEquals(
+							expression.NewBindVar("v1"),
+							expression.NewBindVar("v2"),
+							),
+						plan.NewUnresolvedTable("mytable3", ""),
+					),
 				),
 			),
-			plan.NewUnresolvedTable("mytable3", ""),
-		),
-	)
+		},
+		{
+			node: plan.NewProject(
+				[]sql.Expression{
+					expression.NewLiteral(1, sql.Int64),
+				},
+				plan.NewUnion(
+					plan.NewProject(
+						[]sql.Expression{
+							expression.NewLiteral(1, sql.Int64),
+						},
+						plan.NewUnresolvedTable("mytable", ""),
+					),
+					plan.NewProject(
+						[]sql.Expression{
+							expression.NewBindVar("v1"),
+							expression.NewBindVar("v2"),
+						},
+						plan.NewUnresolvedTable("mytable", ""),
+					),
+				),
+			),
+		},
+		{
+			node: plan.NewFilter(
+				expression.NewEquals(
+					expression.NewLiteral(1, sql.Int64),
+					expression.NewLiteral(1, sql.Int64),
+				),
+				plan.NewWindow(
+					[]sql.Expression{
+						aggregation.NewSum(
+							expression.NewGetFieldWithTable(0, sql.Int64, "a", "x", false),
+						),
+						expression.NewGetFieldWithTable(1, sql.Int64, "a", "x", false),
+						expression.NewBindVar("v1"),
+					},
+					plan.NewProject(
+						[]sql.Expression{
+							expression.NewBindVar("v2"),
+						},
+						plan.NewUnresolvedTable("x", ""),
+					),
+				),
+			),
+		},
+		{
+			node: plan.NewFilter(
+				expression.NewEquals(
+					expression.NewLiteral(1, sql.Int64),
+					expression.NewLiteral(1, sql.Int64),
+				),
+				plan.NewSubqueryAlias("cte1", "select x from a",
+					plan.NewProject(
+						[]sql.Expression{
+							expression.NewBindVar("v1"),
+							expression.NewUnresolvedColumn("v2"),
+						},
+						plan.NewUnresolvedTable("a", ""),
+					),
+				),
+			),
+		},
+	}
 
-	new, err := DeepCopyNode(node)
-	require.NoError(t, err)
-
-	new, _ = plan.TransformUp(new, func(node sql.Node) (sql.Node, error) {
-		switch n := node.(type) {
-		case *plan.Project:
-			newExpr, _ := expression.TransformUp(n.Projections[0], func(expr sql.Expression) (sql.Expression, error) {
-				switch expr.(type) {
-				case *expression.Star:
-					return expression.NewUnresolvedQualifiedColumn("mytable3", "i"), nil
-				}
-				return expr, nil
+	for i, tt := range tests {
+		t.Run(fmt.Sprintf("DeepCopyTest_%d", i), func(t *testing.T) {
+			cop, err := DeepCopyNode(tt.node)
+			require.NoError(t, err)
+			cop, err = plan.ApplyBindings(cop, map[string]sql.Expression{
+				"v1": expression.NewLiteral(1, sql.Int64),
+				"v2": expression.NewLiteral("x", sql.Text),
 			})
-			return plan.NewProject([]sql.Expression{newExpr}, n.Child), nil
-		case *plan.InnerJoin:
-			return plan.NewInnerJoin(n.Left(), n.Right(), n.Cond), nil
-		}
-		return node, nil
-	})
-
-	require.NotEqual(t, new, node)
-
-	require.Equal(t, plan.NewProject(
-		[]sql.Expression{
-			expression.NewStar(),
-		},
-		plan.NewNaturalJoin(
-			plan.NewInnerJoin(
-				plan.NewUnresolvedTable("mytable", ""),
-				plan.NewUnresolvedTable("mytable2", ""),
-				expression.NewEquals(
-					expression.NewUnresolvedQualifiedColumn("mytable", "i"),
-					expression.NewUnresolvedQualifiedColumn("mytable2", "i2"),
-				),
-			),
-			plan.NewUnresolvedTable("mytable3", ""),
-		),
-	), node)
+			require.NoError(t, err)
+			require.NotEqual(t, cop, tt.node)
+		})
+	}
 }

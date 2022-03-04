@@ -156,66 +156,30 @@ func (e *Engine) QueryWithBindings(ctx *sql.Context, query string, bindings map[
 
 // QueryNodeWithBindings executes the query given with the bindings provided. If parsed is non-nil, it will be used
 // instead of parsing the query from text.
-func (e *Engine) QueryNodeWithBindings(ctx *sql.Context, query string, parsed sql.Node, bindings map[string]sql.Expression) (sql.Schema, sql.RowIter, error) {
+func (e *Engine) QueryNodeWithBindings(
+	ctx *sql.Context,
+	query string,
+	parsed sql.Node,
+	bindings map[string]sql.Expression,
+	) (sql.Schema, sql.RowIter, error) {
 	var (
 		analyzed sql.Node
 		iter     sql.RowIter
 		err      error
 	)
 
-	if parsed == nil {
-		parsed, err = parse.Parse(ctx, query)
-		if err != nil {
-			return nil, nil, err
-		}
-	}
-
-	err = e.readOnlyCheck(parsed)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	transactionDatabase, err := e.beginTransaction(ctx, parsed)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	// prepared statement, short circuit optimizer
-	ctx.Session.ID()
-	if query == e.PreparedQuery(ctx) && e.PreparedNode(ctx) != nil {
-		ctx.GetLogger().Tracef("optimizing prepared plan for query: %s", query)
-
-		analyzed = e.PreparedNode(ctx)
-		analyzed, err = analyzer.DeepCopyNode(analyzed)
-
-		if len(bindings) > 0 {
-			analyzed, err = plan.ApplyBindings(ctx, analyzed, bindings)
-			if err != nil {
-				return nil, nil, err
-			}
-		}
-		ctx.GetLogger().Tracef("plan before re-opt: %s", analyzed.String())
-
-		analyzed, err = e.Analyzer.AnalyzePrepared(ctx, analyzed, nil)
-		if err != nil {
-			return nil, nil, err
-		}
-
-		if analyzed != nil {
-			ctx.GetLogger().Tracef("plan after re-opt: %s", analyzed.String())
-		}
+	if p, ok := e.preparedDateForSession(ctx.Session); ok && p.Query == query {
+		analyzed, err = e.analyzePreparedQuery(ctx, query, bindings)
 	} else {
-		if len(bindings) > 0 {
-			parsed, err = plan.ApplyBindings(ctx, parsed, bindings)
-			if err != nil {
-				return nil, nil, err
-			}
-		}
+		analyzed, err = e.analyzeQuery(ctx, query, parsed, bindings)
+	}
+	if err != nil {
+		return nil, nil, err
+	}
 
-		analyzed, err = e.Analyzer.Analyze(ctx, parsed, nil)
-		if err != nil {
-			return nil, nil, err
-		}
+	transactionDatabase, err := e.beginTransaction(ctx, analyzed)
+	if err != nil {
+		return nil, nil, err
 	}
 
 	iter, err = analyzed.RowIter(ctx, nil)
@@ -249,15 +213,95 @@ func (e *Engine) cachePreparedStmt(ctx *sql.Context, analyzed sql.Node, query st
 	}
 }
 
-func (e *Engine) PreparedQuery(ctx *sql.Context) string {
-	return e.PreparedData[ctx.Session.ID()].Query
-}
-func (e *Engine) PreparedNode(ctx *sql.Context) sql.Node {
-	return e.PreparedData[ctx.Session.ID()].Node
+// preparedDateForSession returns the prepared data for a given session.
+// Second parameter is false if the session has no prepared data.
+func (e *Engine) preparedDateForSession(sess sql.Session) (PreparedData, bool) {
+	if data, ok := e.PreparedData[sess.ID()]; ok {
+		return data, true
+	}
+	return PreparedData{}, false
 }
 
+// preparedQuery returns the prepared plan's query string for a given
+// context's session id, or an empty string if the session has no prepared data.
+func (e *Engine) preparedQuery(ctx *sql.Context) string {
+	if data, ok := e.preparedDateForSession(ctx.Session); ok {
+		return data.Query
+	}
+	return ""
+}
+
+// preparedNode returns the pre-analyzed plan for a given
+// context's session id, or nil if the session has no prepared data.
+func (e *Engine) preparedNode(ctx *sql.Context) sql.Node {
+	if data, ok := e.PreparedData[ctx.Session.ID()]; ok {
+		return data.Node
+	}
+	return nil
+}
+
+// CloseSession clears session=specific prepared statement data
 func (e *Engine) CloseSession(ctx *sql.Context) {
 	delete(e.PreparedData, ctx.Session.ID())
+}
+
+func (e *Engine) analyzeQuery(ctx *sql.Context, query string, parsed sql.Node, bindings map[string]sql.Expression) (sql.Node, error) {
+	var (
+		analyzed sql.Node
+		err error
+	)
+
+	if parsed == nil {
+		parsed, err = parse.Parse(ctx, query)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	err = e.readOnlyCheck(parsed)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(bindings) > 0 {
+		parsed, err = plan.ApplyBindings(parsed, bindings)
+		if err != nil {
+			return nil, err
+		}
+	}
+	analyzed, err = e.Analyzer.Analyze(ctx, parsed, nil)
+	if err != nil {
+		return nil, err
+	}
+	return analyzed, nil
+}
+
+func (e *Engine) analyzePreparedQuery(ctx *sql.Context, query string, bindings map[string]sql.Expression) (sql.Node, error) {
+	ctx.GetLogger().Tracef("optimizing prepared plan for query: %s", query)
+
+	analyzed := e.preparedNode(ctx)
+	analyzed, err := analyzer.DeepCopyNode(analyzed)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(bindings) > 0 {
+		analyzed, err = plan.ApplyBindings(analyzed, bindings)
+		if err != nil {
+			return nil, err
+		}
+	}
+	ctx.GetLogger().Tracef("plan before re-opt: %s", analyzed.String())
+
+	analyzed, err = e.Analyzer.AnalyzePrepared(ctx, analyzed, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if analyzed != nil {
+		ctx.GetLogger().Tracef("plan after re-opt: %s", analyzed.String())
+	}
+	return analyzed, nil
 }
 
 // allNode2 returns whether all the nodes in the tree implement Node2.

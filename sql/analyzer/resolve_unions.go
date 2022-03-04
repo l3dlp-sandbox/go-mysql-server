@@ -114,6 +114,11 @@ func mergeUnionSchemas(ctx *sql.Context, a *Analyzer, n sql.Node, scope *Scope) 
 				if reflect.DeepEqual(ls[i].Type, rs[i].Type) {
 					continue
 				}
+				_, ldef := ls[i].Type.(sql.DeferredType)
+				_, rdef := rs[i].Type.(sql.DeferredType)
+				if ldef && rdef {
+					continue
+				}
 				hasdiff = true
 
 				// TODO: Principled type coercion...

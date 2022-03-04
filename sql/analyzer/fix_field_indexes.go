@@ -167,6 +167,16 @@ func FixFieldIndexesForExpressions(ctx *sql.Context, a *Analyzer, node sql.Node,
 		if err != nil {
 			return nil, err
 		}
+	//case *plan.IndexedJoin:
+	//	cond, err := FixFieldIndexes(ctx, scope, a, j.Schema(), j.Cond)
+	//	if err != nil {
+	//		return nil, err
+	//	}
+	//
+	//	n, err = j.WithExpressions(cond)
+	//	if err != nil {
+	//		return nil, err
+	//	}
 	}
 
 	return n, nil

@@ -4767,10 +4767,8 @@ func TestPrepared(t *testing.T, harness Harness) {
 	for i, tt := range tests {
 		ctx := NewContext(harness)
 		e.PrepareQuery(ctx, q)
-		prepared := e.PreparedNode(ctx)
 		t.Run(fmt.Sprintf("One query multiple bindings: %d", i), func(t *testing.T) {
 			TestQueryWithContext(t, ctx, e, q, tt.exp, nil, tt.bindings)
-			assert.Equal(t, prepared, e.PreparedNode(ctx))
 		})
 	}
 }
@@ -4879,7 +4877,15 @@ func NewEngineWithDbs(t *testing.T, harness Harness, databases []sql.Database) *
 }
 
 // TestQuery runs a query on the engine given and asserts that results are as expected.
-func TestQuery(t *testing.T, harness Harness, e *sqle.Engine, q string, expected []sql.Row, expectedCols []*sql.Column, bindings map[string]sql.Expression) {
+func TestQuery(
+	t *testing.T,
+	harness Harness,
+	e *sqle.Engine,
+	q string,
+	expected []sql.Row,
+	expectedCols []*sql.Column,
+	bindings map[string]sql.Expression,
+	) {
 	t.Run(q, func(t *testing.T) {
 		if sh, ok := harness.(SkippingHarness); ok {
 			if sh.SkipQueryTest(q) {
@@ -4893,25 +4899,95 @@ func TestQuery(t *testing.T, harness Harness, e *sqle.Engine, q string, expected
 }
 
 // TestPreparedQuery runs a prepared query on the engine given and asserts that results are as expected.
-func TestPreparedQuery(t *testing.T, harness Harness, e *sqle.Engine, q string, expected []sql.Row, expectedCols []*sql.Column, bindings map[string]sql.Expression) {
+func TestPreparedQuery(
+	t *testing.T,
+	harness Harness,
+	e *sqle.Engine,
+	q string,
+	expected []sql.Row,
+	expectedCols []*sql.Column,
+	bindings map[string]sql.Expression,
+	) {
 	t.Run(q, func(t *testing.T) {
 		if sh, ok := harness.(SkippingHarness); ok {
 			if sh.SkipQueryTest(q) {
 				t.Skipf("Skipping query %s", q)
 			}
 		}
-
 		ctx := NewContextWithEngine(harness, e)
 		TestPreparedQueryWithContext(t, ctx, e, q, expected, expectedCols, bindings)
+		//TestQueryWithContext(t, ctx, e, q, expected, expectedCols, bindings)
 	})
 }
 
-func TestPreparedQueryWithContext(t *testing.T, ctx *sql.Context, e *sqle.Engine, q string, expected []sql.Row, expectedCols []*sql.Column, bindings map[string]sql.Expression) {
+func TestPreparedQueryWithContext(
+	t *testing.T,
+	ctx *sql.Context,
+	e *sqle.Engine,
+	q string,
+	expected []sql.Row,
+	expectedCols []*sql.Column,
+	bindings map[string]sql.Expression,
+	) {
 	require := require.New(t)
+	parsed, err := parse.Parse(ctx, q)
+	bindVars := make(map[string]sql.Expression)
+	var bindCnt int
+	var foundBindVar bool
+	bound, err := plan.TransformUpWithOpaque(parsed, func(n sql.Node) (sql.Node, error) {
+		return plan.TransformExpressionsUp(n, func(expr sql.Expression) (sql.Expression, error) {
+			switch e := expr.(type) {
+			case *expression.Literal:
+				varName := fmt.Sprintf("v%d", bindCnt)
+				bindVars[varName] = e
+				bindCnt++
+				return expression.NewBindVar(varName), nil
+			case *expression.BindVar:
+				if _, ok := bindVars[e.Name]; ok {
+					return expr, nil
+				}
+				foundBindVar = true
+				return expr, nil
+			default:
+				return expr, nil
+			}
+		})
+	})
+	if foundBindVar {
+		t.Skip()
+	}
 
-	_, err := e.PrepareQuery(ctx, q)
+	// prepare
+	prepared, err := e.Analyzer.PrepareQuery(ctx, bound, nil)
+	e.PreparedData[ctx.Session.ID()] = sqle.PreparedData{
+		Query: q,
+		Node:  prepared,
+	}
+	// then run with the bind vars
+	//_, err := e.PrepareQuery(ctx, q)
+	//require.NoError(err, "Unexpected error for query %s", q)
+
+	sch, iter, err := e.QueryNodeWithBindings(ctx, q, nil, bindVars)
 	require.NoError(err, "Unexpected error for query %s", q)
 
+	rows, err := sql.RowIterToRows(ctx, sch, iter)
+	require.NoError(err, "Unexpected error for query %s", q)
+
+	checkResults(t, require, expected, expectedCols, sch, rows, q)
+
+	require.Equal(0, ctx.Memory.NumCaches())
+}
+
+func TestQueryWithContext(
+	t *testing.T,
+	ctx *sql.Context,
+	e *sqle.Engine,
+	q string,
+	expected []sql.Row,
+	expectedCols []*sql.Column,
+	bindings map[string]sql.Expression,
+	) {
+	require := require.New(t)
 	sch, iter, err := e.QueryWithBindings(ctx, q, bindings)
 	require.NoError(err, "Unexpected error for query %s", q)
 
@@ -4923,20 +4999,15 @@ func TestPreparedQueryWithContext(t *testing.T, ctx *sql.Context, e *sqle.Engine
 	require.Equal(0, ctx.Memory.NumCaches())
 }
 
-func TestQueryWithContext(t *testing.T, ctx *sql.Context, e *sqle.Engine, q string, expected []sql.Row, expectedCols []*sql.Column, bindings map[string]sql.Expression) {
-	require := require.New(t)
-	sch, iter, err := e.QueryWithBindings(ctx, q, bindings)
-	require.NoError(err, "Unexpected error for query %s", q)
-
-	rows, err := sql.RowIterToRows(ctx, sch, iter)
-	require.NoError(err, "Unexpected error for query %s", q)
-
-	checkResults(t, require, expected, expectedCols, sch, rows, q)
-
-	require.Equal(0, ctx.Memory.NumCaches())
-}
-
-func checkResults(t *testing.T, require *require.Assertions, expected []sql.Row, expectedCols []*sql.Column, sch sql.Schema, rows []sql.Row, q string) {
+func checkResults(
+	t *testing.T,
+	require *require.Assertions,
+	expected []sql.Row,
+	expectedCols []*sql.Column,
+	sch sql.Schema,
+	rows []sql.Row,
+	q string,
+	) {
 	widenedRows := WidenRows(sch, rows)
 	widenedExpected := WidenRows(sch, expected)
 

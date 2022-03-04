@@ -16,6 +16,7 @@ package analyzer
 
 import (
 	"fmt"
+	"github.com/dolthub/go-mysql-server/sql/expression"
 	"os"
 	"reflect"
 	"strings"
@@ -341,80 +342,72 @@ func (a *Analyzer) PopDebugContext() {
 	}
 }
 
-func analyzeAll(batchName string) bool {
-	return true
-}
+func analyzeAll(string) bool { return true }
 
 // Analyze applies the transformation rules to the node given. In the case of an error, the last successfully
 // transformed node is returned along with the error.
 func (a *Analyzer) Analyze(ctx *sql.Context, n sql.Node, scope *Scope) (sql.Node, error) {
-	return a.analyzeWithSelector(ctx, n, scope, analyzeAll)
+	rule_sec := func(n string) bool {
+		switch n {
+		case "strip_decorations",
+		    "simplify_resolved_nodes":
+		    	return false
+		}
+		return true
+	}
+	return a.analyzeWithSelector(ctx, n, scope, analyzeAll, rule_sec)
 }
 
 // PrepareQuery applies a partial set of transformations to a prepared plan.
 func (a *Analyzer) PrepareQuery(ctx *sql.Context, n sql.Node, scope *Scope) (sql.Node, error) {
-	skip := map[string]struct{}{
-		"in_subquery_indexes": {},
-		"track_process":       {},
-		"parallelize":         {},
-		"clear_warnings":      {},
+	skip := func(n string) bool {
+		switch n {
+		case "in_subquery_indexes",
+			"track_process",
+			"parallelize",
+			"clear_warnings":
+				return false
+		}
+		return true
 	}
-	return a.analyzeWithExceptor(ctx, n, scope, skip)
+	return a.analyzeWithSelector(ctx, n, scope, analyzeAll, skip)
 }
 
 // AnalyzePrepared runs a partial rule set against a previously analyzed plan.
 // - resolve the most recent table roots
 // - apply indexes after BindVar substitution
 // - add exchange nodes
-func (a *Analyzer) AnalyzePrepared(ctx *sql.Context, before sql.Node, scope *Scope) (sql.Node, error) {
-	batch := Batch{
-		Desc:       "prepared re-analysis",
-		Iterations: 1,
-		Rules: []Rule{
-			// once before
-			{"strip_decorations", stripDecorations},
-			{"simplify_resolved_nodes", unresolveTables},
+func (a *Analyzer) AnalyzePrepared(ctx *sql.Context, n sql.Node, scope *Scope) (sql.Node, error) {
+	sel := func(n string) bool {
+		switch n {
+		case "strip_decorations",
+			"simplify_resolved_nodes",
 
-			// default
-			// TODO iterate defaults?
-			{"resolve_databases", resolveDatabases},
-			{"resolve_tables", resolveTables},
+			"resolve_functions",
+			"flatten_table_aliases",
+			"pushdown_sort",
+			"pushdown_groupby_aliases",
+			"resolve_databases",
+			"resolve_tables",
 
-			// once after
-			{"subquery_indexes", applyIndexesFromOuterScope},
-			{"in_subquery_indexes", applyIndexesForSubqueryComparisons},
-			{"pushdown_filters", pushdownFilters},
+			"resolve_orderby_literals",
+			"qualify_columns",
+			"resolve_columns",
 
 			// once after
-			{"track_process", trackProcess},
-			{"parallelize", parallelize},
-			{"clear_warnings", clearWarnings},
-		},
-	}
+			"subquery_indexes",
+			"in_subquery_indexes",
+			"pushdown_filters",
 
-	span, ctx := ctx.Span("analyze", opentracing.Tags{
-		//"plan": , n.String(),
-	})
-
-	var err error
-	a.Log("starting analysis of node of type: %T", before)
-	a.PushDebugContext(batch.Desc)
-	after, err := batch.Eval(ctx, a, before, scope)
-	if err != nil {
-		a.Log("Encountered error: %v", err)
-		a.PopDebugContext()
-		return before, err
-	}
-	a.PopDebugContext()
-
-	defer func() {
-		if after != nil {
-			span.SetTag("IsResolved", after.Resolved())
+			// once after
+			"track_process",
+			"parallelize",
+			"clear_warnings":
+				return true
 		}
-		span.Finish()
-	}()
-
-	return after, err
+		return false
+	}
+	return a.analyzeWithSelector(ctx, n, scope, analyzeAll, sel)
 }
 
 func (a *Analyzer) analyzeThroughBatch(ctx *sql.Context, n sql.Node, scope *Scope, until string) (sql.Node, error) {
@@ -429,20 +422,21 @@ func (a *Analyzer) analyzeThroughBatch(ctx *sql.Context, n sql.Node, scope *Scop
 		// we return true even for the matching description; only start
 		// returning false after this batch.
 		return true
-	})
+	}, analyzeAll)
 }
 
-func (a *Analyzer) analyzeWithSelector(ctx *sql.Context, n sql.Node, scope *Scope, selector func(d string) bool) (sql.Node, error) {
+func (a *Analyzer) analyzeWithSelector(ctx *sql.Context, n sql.Node, scope *Scope, batchSelector, ruleSelector func(d string) bool) (sql.Node, error) {
 	span, ctx := ctx.Span("analyze", opentracing.Tags{
 		//"plan": , n.String(),
 	})
-
+	//a.Debug = true
+	//a.Verbose = true
 	var err error
 	a.Log("starting analysis of node of type: %T", n)
 	for _, batch := range a.Batches {
-		if selector(batch.Desc) {
+		if batchSelector(batch.Desc) {
 			a.PushDebugContext(batch.Desc)
-			n, err = batch.Eval(ctx, a, n, scope)
+			n, err = batch.EvalWithSelector(ctx, a, n, scope, ruleSelector)
 			if err != nil {
 				a.Log("Encountered error: %v", err)
 				a.PopDebugContext()
@@ -450,35 +444,6 @@ func (a *Analyzer) analyzeWithSelector(ctx *sql.Context, n sql.Node, scope *Scop
 			}
 			a.PopDebugContext()
 		}
-	}
-
-	defer func() {
-		if n != nil {
-			span.SetTag("IsResolved", n.Resolved())
-		}
-		span.Finish()
-	}()
-
-	return n, err
-}
-
-func (a *Analyzer) analyzeWithExceptor(ctx *sql.Context, n sql.Node, scope *Scope, except map[string]struct{}) (sql.Node, error) {
-	span, ctx := ctx.Span("analyze", opentracing.Tags{
-		//"plan": , n.String(),
-	})
-
-	var err error
-	a.Log("starting analysis of node of type: %T", n)
-	for _, batch := range a.Batches {
-		batch.Skip = except
-		a.PushDebugContext(batch.Desc)
-		n, err = batch.Eval(ctx, a, n, scope)
-		if err != nil {
-			a.Log("Encountered error: %v", err)
-			a.PopDebugContext()
-			return n, err
-		}
-		a.PopDebugContext()
 	}
 
 	defer func() {
@@ -501,25 +466,13 @@ func (a *Analyzer) analyzeStartingAtBatch(ctx *sql.Context, n sql.Node, scope *S
 			return true
 		}
 		return false
-	})
+	}, analyzeAll)
 }
 
 func DeepCopyNode(node sql.Node) (sql.Node, error) {
 	return plan.TransformUp(node, func(n sql.Node) (sql.Node, error) {
-		var err error
-		if v, ok := n.(sql.Expressioner); ok {
-			newExpressions := make([]sql.Expression, len(v.Expressions()))
-			for i, e := range v.Expressions() {
-				newExpressions[i], err = e.WithChildren(e.Children()...)
-				if err != nil {
-					return nil, err
-				}
-			}
-			n, err = v.WithExpressions(newExpressions...)
-			if err != nil {
-				return nil, err
-			}
-		}
-		return n.WithChildren(n.Children()...)
+		return plan.TransformExpressionsUp(n, func(expr sql.Expression) (sql.Expression, error) {
+			return expression.Clone(expr)
+		})
 	})
 }

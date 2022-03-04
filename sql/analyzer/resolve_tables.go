@@ -146,3 +146,36 @@ func handleTableLookupFailure(err error, tableName string, dbName string, a *Ana
 
 	return nil, err
 }
+
+// unresolveTables is a quick and dirty way to make prepared statement reanalysis
+// resolve the most up-to-date table roots while preserving projections folded into
+// table scans.
+func unresolveTables(ctx *sql.Context, a *Analyzer, node sql.Node, scope *Scope) (sql.Node, error) {
+	return plan.TransformUp(node, func(n sql.Node) (sql.Node, error) {
+		var t *plan.ResolvedTable
+		switch n := n.(type) {
+		case *plan.ResolvedTable:
+			t = n
+		case *plan.IndexedTableAccess:
+			t = n.ResolvedTable
+		default:
+			return n, nil
+		}
+		var table string
+		if t.Table != nil {
+			table = t.Table.Name()
+		}
+		var db string
+		if t.Database != nil {
+			db = t.Database.Name()
+		}
+
+		rt, err := resolveTable(ctx, plan.NewUnresolvedTable(table, db), a)
+		if err != nil {
+			return nil, err
+		}
+
+		new := transferProjections(t, rt.(*plan.ResolvedTable))
+		return new, nil
+	})
+}
