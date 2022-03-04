@@ -179,3 +179,42 @@ func unresolveTables(ctx *sql.Context, a *Analyzer, node sql.Node, scope *Scope)
 		return new, nil
 	})
 }
+
+// transferProjections moves projections from one table scan to another
+func transferProjections(from, to *plan.ResolvedTable) sql.Node {
+	var fromTable sql.Table
+	switch t := from.Table.(type) {
+	case sql.TableWrapper:
+		fromTable = t.Underlying()
+	case sql.Table:
+		fromTable = t
+	default:
+		return to
+	}
+
+	pt, ok := fromTable.(sql.ProjectedTable)
+	if !ok {
+		return to
+	}
+
+	projections := pt.Projections()
+
+	var toTable sql.Table
+	switch t := to.Table.(type) {
+	case sql.TableWrapper:
+		toTable = t.Underlying()
+	case sql.Table:
+		toTable = t
+	default:
+		return to
+	}
+
+	pt, ok = toTable.(sql.ProjectedTable)
+	if !ok {
+		return to
+	}
+
+	newTable := pt.WithProjection(projections)
+	return plan.NewResolvedTable(newTable, to.Database, to.AsOf)
+}
+

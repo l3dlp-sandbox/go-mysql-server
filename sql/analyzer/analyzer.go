@@ -351,7 +351,7 @@ func (a *Analyzer) Analyze(ctx *sql.Context, n sql.Node, scope *Scope) (sql.Node
 		switch n {
 		// prepared statement rules are incompatible with default rules
 		case "strip_decorations",
-		    "simplify_resolved_nodes":
+		    "unresolve_tables":
 		    	return false
 		}
 		return true
@@ -366,7 +366,9 @@ func (a *Analyzer) PrepareQuery(ctx *sql.Context, n sql.Node, scope *Scope) (sql
 		case "in_subquery_indexes",
 			"track_process",
 			"parallelize",
-			"clear_warnings":
+			"clear_warnings",
+			"strip_decorations",
+			"unresolve_tables":
 				return false
 		}
 		return true
@@ -382,7 +384,8 @@ func (a *Analyzer) AnalyzePrepared(ctx *sql.Context, n sql.Node, scope *Scope) (
 	sel := func(n string) bool {
 		switch n {
 		case "strip_decorations",
-			"simplify_resolved_nodes",
+			"unresolve_tables",
+			"unresolve_columns",
 
 			"resolve_functions",
 			"flatten_table_aliases",
@@ -430,8 +433,8 @@ func (a *Analyzer) analyzeWithSelector(ctx *sql.Context, n sql.Node, scope *Scop
 	span, ctx := ctx.Span("analyze", opentracing.Tags{
 		//"plan": , n.String(),
 	})
-	//a.Debug = true
-	//a.Verbose = true
+	a.Debug = true
+	a.Verbose = true
 	var err error
 	a.Log("starting analysis of node of type: %T", n)
 	for _, batch := range a.Batches {

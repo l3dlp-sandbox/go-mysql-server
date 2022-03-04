@@ -233,7 +233,7 @@ func (t datetimeType) ConvertWithoutRangeCheck(v interface{}) (time.Time, error)
 		if value == 0 {
 			return zeroTime, nil
 		}
-		return zeroTime, ErrConvertingToTime.New(v)
+		res = time.Unix(value, 0)
 	case uint:
 		if value == 0 {
 			return zeroTime, nil

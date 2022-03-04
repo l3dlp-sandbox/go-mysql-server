@@ -590,9 +590,9 @@ func resolveColumnExpression(a *Analyzer, n sql.Node, e column, columns map[tabl
 // pushdownGroupByAliases reorders the aggregation in a groupby so aliases defined in it can be resolved in the grouping
 // of the groupby. To do so, all aliases are pushed down to a projection node under the group by.
 func pushdownGroupByAliases(ctx *sql.Context, a *Analyzer, n sql.Node, scope *Scope) (sql.Node, error) {
-	//if n.Resolved() {
-	//	return n, nil
-	//}
+	if n.Resolved() {
+		return n, nil
+	}
 
 	// replacedAliases is a map of original expression string to alias that has been pushed down below the GroupBy in
 	// the new projection node.
@@ -607,9 +607,9 @@ func pushdownGroupByAliases(ctx *sql.Context, a *Analyzer, n sql.Node, scope *Sc
 		}
 
 		g, ok := n.(*plan.GroupBy)
-		//if n.Resolved() || !ok || len(g.GroupByExprs) == 0 {
-		//	return n, nil
-		//}
+		if n.Resolved() || !ok || len(g.GroupByExprs) == 0 {
+			return n, nil
+		}
 		if !ok || len(g.GroupByExprs) == 0 {
 			return n, nil
 		}

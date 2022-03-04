@@ -52,7 +52,7 @@ var OnceBeforeDefault = []Rule{
 	{"validate_database_set", validateDatabaseSet},
 	{"check_privileges", checkPrivileges}, // Ensure that checking privileges happens after db & table resolution
 	{"strip_decorations", stripDecorations},
-	{"simplify_resolved_nodes", unresolveTables},
+	{"unresolve_tables", unresolveTables},
 }
 
 // DefaultRules to apply when analyzing nodes.
