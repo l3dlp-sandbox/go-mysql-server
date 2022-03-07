@@ -231,10 +231,10 @@ func expressionSources(expr sql.Expression) []string {
 	return result
 }
 
-// evalFilter simplifies the expressions in Filter nodes where possible. This involves removing redundant parts of AND
+// simplifyFilters simplifies the expressions in Filter nodes where possible. This involves removing redundant parts of AND
 // and OR expressions, as well as replacing evaluable expressions with their literal result. Filters that can
 // statically be determined to be true or false are replaced with the child node or an empty result, respectively.
-func evalFilter(ctx *sql.Context, a *Analyzer, node sql.Node, scope *Scope, sel RuleSelector) (sql.Node, error) {
+func simplifyFilters(ctx *sql.Context, a *Analyzer, node sql.Node, scope *Scope, sel RuleSelector) (sql.Node, error) {
 	if !node.Resolved() {
 		return node, nil
 	}

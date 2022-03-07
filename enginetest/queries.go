@@ -1432,79 +1432,8 @@ var QueryTests = []QueryTest{
 			{2, 1, 2}},
 	},
 	{
-		Query: "SELECT i, 1 AS foo, 2 AS bar FROM (SELECT i FROM mYtABLE WHERE i = ?) AS a ORDER BY foo, i",
-		Expected: []sql.Row{
-			{2, 1, 2}},
-		Bindings: map[string]sql.Expression{
-			"v1": expression.NewLiteral(int64(2), sql.Int64),
-		},
-	},
-	{
-		Query: "SELECT i, 1 AS foo, 2 AS bar FROM (SELECT i FROM mYtABLE WHERE i = :var) AS a WHERE bar = :var ORDER BY foo, i",
-		Expected: []sql.Row{
-			{2, 1, 2}},
-		Bindings: map[string]sql.Expression{
-			"var": expression.NewLiteral(int64(2), sql.Int64),
-		},
-	},
-	{
 		Query:    "SELECT i, 1 AS foo, 2 AS bar FROM MyTable WHERE bar = 1 ORDER BY foo, i;",
 		Expected: []sql.Row{},
-	},
-	{
-		Query:    "SELECT i, 1 AS foo, 2 AS bar FROM MyTable WHERE bar = ? ORDER BY foo, i;",
-		Expected: []sql.Row{},
-		Bindings: map[string]sql.Expression{
-			"v1": expression.NewLiteral(int64(1), sql.Int64),
-		},
-	},
-	{
-		Query:    "SELECT i, 1 AS foo, 2 AS bar FROM MyTable WHERE bar = :bar AND foo = :foo ORDER BY foo, i;",
-		Expected: []sql.Row{},
-		Bindings: map[string]sql.Expression{
-			"bar": expression.NewLiteral(int64(1), sql.Int64),
-			"foo": expression.NewLiteral(int64(1), sql.Int64),
-		},
-	},
-	{
-		Query: "SELECT :foo * 2",
-		Expected: []sql.Row{
-			{2},
-		},
-		Bindings: map[string]sql.Expression{
-			"foo": expression.NewLiteral(int64(1), sql.Int64),
-		},
-	},
-	{
-		Query: "SELECT i from mytable where i in (:foo, :bar) order by 1",
-		Expected: []sql.Row{
-			{1},
-			{2},
-		},
-		Bindings: map[string]sql.Expression{
-			"foo": expression.NewLiteral(int64(1), sql.Int64),
-			"bar": expression.NewLiteral(int64(2), sql.Int64),
-		},
-	},
-	{
-		Query: "SELECT i from mytable where i = :foo * 2",
-		Expected: []sql.Row{
-			{2},
-		},
-		Bindings: map[string]sql.Expression{
-			"foo": expression.NewLiteral(int64(1), sql.Int64),
-		},
-	},
-	{
-		Query: "SELECT i from mytable where 4 = :foo * 2 order by 1",
-		Expected: []sql.Row{
-			{1},
-			{2},
-			{3},
-		},
-		Bindings: map[string]sql.Expression{
-			"foo": expression.NewLiteral(int64(2), sql.Int64),
-		},
 	},
 	{
 		Query:    "SELECT timestamp FROM reservedWordsTable;",
@@ -2059,21 +1988,6 @@ var QueryTests = []QueryTest{
 	{
 		Query:    "SELECT i FROM mytable ORDER BY i LIMIT 1 OFFSET 1;",
 		Expected: []sql.Row{{int64(2)}},
-	},
-	{
-		Query: "SELECT i FROM mytable WHERE s = 'first row' ORDER BY i DESC LIMIT ?;",
-		Bindings: map[string]sql.Expression{
-			"v1": expression.NewLiteral(1, sql.Int8),
-		},
-		Expected: []sql.Row{{int64(1)}},
-	},
-	{
-		Query: "SELECT i FROM mytable ORDER BY i LIMIT ? OFFSET 2;",
-		Bindings: map[string]sql.Expression{
-			"v1": expression.NewLiteral(1, sql.Int8),
-			"v2": expression.NewLiteral(1, sql.Int8),
-		},
-		Expected: []sql.Row{{int64(3)}},
 	},
 	{
 		Query:    "SELECT i FROM mytable WHERE i NOT IN (SELECT i FROM (SELECT * FROM (SELECT i as i, s as s FROM mytable) f) s)",

@@ -24,6 +24,8 @@ import (
 	"github.com/dolthub/go-mysql-server/sql/plan"
 )
 
+// processTruncate is a combination of resolving field in *plan.DeleteFrom and *plan.Truncate, validating the fields,
+// and in some cases converting *plan.DeleteFrom -> *plan.Truncate
 func processTruncate(ctx *sql.Context, a *Analyzer, n sql.Node, scope *Scope, sel RuleSelector) (sql.Node, error) {
 	span, _ := ctx.Span("processTruncate")
 	defer span.Finish()

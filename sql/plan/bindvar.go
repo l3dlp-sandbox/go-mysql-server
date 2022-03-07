@@ -24,6 +24,7 @@ import (
 // If a binding for a |BindVar| expression is not found in the map, no error is
 // returned and the |BindVar| expression is left in place. There is no check on
 // whether all entries in |bindings| are used at least once throughout the |n|.
+// sql.DeferredType instances will be resolved by the binding types.
 func ApplyBindings(n sql.Node, bindings map[string]sql.Expression) (sql.Node, error) {
 	fixBindings := func(expr sql.Expression) (sql.Expression, error) {
 		switch e := expr.(type) {
@@ -45,6 +46,14 @@ func ApplyBindings(n sql.Node, bindings map[string]sql.Expression) (sql.Node, er
 				return expr, nil
 			}
 			return expression.NewGetFieldWithTable(e.Index(), val.Type().Promote(), e.Table(), e.Name(), val.IsNullable()), nil
+		case *Subquery:
+			// *Subquery is a sql.Expression with a sql.Node not reachable
+			// by the visitor. Manually apply bindings to [Query] field.
+			q, err := ApplyBindings(e.Query, bindings)
+			if err != nil {
+				return nil, err
+			}
+			return e.WithQuery(q), nil
 		}
 		return expr, nil
 	}
@@ -53,16 +62,15 @@ func ApplyBindings(n sql.Node, bindings map[string]sql.Expression) (sql.Node, er
 		switch n := node.(type) {
 		case *IndexedJoin:
 			// *plan.IndexedJoin cannot implement sql.Expressioner
-			// because nested-join schemas cannot be altered (the
-			// column indexes get mis-ordered by FixFieldIndexesForExpressions)
+			// because the column indexes get mis-ordered by FixFieldIndexesForExpressions.
 			cond, err := expression.TransformUp(n.Cond, fixBindings)
 			if err != nil {
 				return nil, err
 			}
 			return NewIndexedJoin(n.left, n.right, n.joinType, cond, n.scopeLen), nil
 		case *InsertInto:
-			// we analyze insert .Source separately from .Destination,
-			// so .Source is not a child node
+			// Manually apply bindings to [Source] because it is separated
+			// from [Destination].
 			newSource, err := ApplyBindings(n.Source, bindings)
 			if err != nil {
 				return nil, err

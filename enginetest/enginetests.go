@@ -4703,37 +4703,34 @@ func TestPersist(t *testing.T, harness Harness, newPersistableSess func(ctx *sql
 }
 
 func TestPrepared(t *testing.T, harness Harness) {
-	e := NewEngine(t, harness)
-
-	var q string
-	tests := []struct {
-		exp      []sql.Row
-		bindings map[string]sql.Expression
-	}{
+	qtests := []QueryTest{
 		{
-			bindings: map[string]sql.Expression{
+			Query: "select x, sum(y) from a where x > ? group by ? order by x",
+			Bindings: map[string]sql.Expression{
 				"v1": expression.NewLiteral(int64(2), sql.Int64),
 				"v2": expression.NewGetField(1, sql.Int64, "y", true),
 			},
-			exp: []sql.Row{
+			Expected: []sql.Row{
 				{4, float64(4)},
 			},
 		},
 		{
-			bindings: map[string]sql.Expression{
+			Query: "select x, sum(y) from a where x > ? group by ? order by x",
+			Bindings: map[string]sql.Expression{
 				"v1": expression.NewLiteral(int64(2), sql.Int64),
 				"v2": expression.NewGetField(1, sql.Int64, "y", true),
 			},
-			exp: []sql.Row{
+			Expected: []sql.Row{
 				{4, float64(4)},
 			},
 		},
 		{
-			bindings: map[string]sql.Expression{
+			Query: "select x, sum(y) from a where x > ? group by ? order by x",
+			Bindings: map[string]sql.Expression{
 				"v1": expression.NewLiteral(int64(0), sql.Int64),
 				"v2": expression.NewGetField(0, sql.Int64, "x", true),
 			},
-			exp: []sql.Row{
+			Expected: []sql.Row{
 				{1, float64(1)},
 				{2, float64(1)},
 				{3, float64(2)},
@@ -4741,34 +4738,158 @@ func TestPrepared(t *testing.T, harness Harness) {
 			},
 		},
 		{
-			bindings: map[string]sql.Expression{
+			Query: "select x, sum(y) from a where x > ? group by ? order by x",
+			Bindings: map[string]sql.Expression{
 				"v1": expression.NewLiteral(int64(3), sql.Int64),
 				"v2": expression.NewGetField(1, sql.Int64, "y", true),
 			},
-			exp: []sql.Row{
+			Expected: []sql.Row{
 				{4, float64(2)},
 			},
 		},
 		{
-			bindings: map[string]sql.Expression{
+			Query: "select x, sum(y) from a where x > ? group by ? order by x",
+			Bindings: map[string]sql.Expression{
 				"v1": expression.NewLiteral(int64(1), sql.Int64),
 				"v2": expression.NewGetField(1, sql.Int64, "y", true),
 			},
-			exp: []sql.Row{
+			Expected: []sql.Row{
 				{2, float64(1)},
 				{4, float64(4)},
 			},
 		},
+		{
+			Query: "SELECT i, 1 AS foo, 2 AS bar FROM (SELECT i FROM mYtABLE WHERE i = ?) AS a ORDER BY foo, i",
+			Expected: []sql.Row{
+				{2, 1, 2}},
+			Bindings: map[string]sql.Expression{
+				"v1": expression.NewLiteral(int64(2), sql.Int64),
+			},
+		},
+		{
+			Query: "SELECT i, 1 AS foo, 2 AS bar FROM (SELECT i FROM mYtABLE WHERE i = :var) AS a WHERE bar = :var ORDER BY foo, i",
+			Expected: []sql.Row{
+				{2, 1, 2}},
+			Bindings: map[string]sql.Expression{
+				"var": expression.NewLiteral(int64(2), sql.Int64),
+			},
+		},
+		{
+			Query:    "SELECT i, 1 AS foo, 2 AS bar FROM MyTable WHERE bar = ? ORDER BY foo, i;",
+			Expected: []sql.Row{},
+			Bindings: map[string]sql.Expression{
+				"v1": expression.NewLiteral(int64(1), sql.Int64),
+			},
+		},
+		{
+			Query:    "SELECT i, 1 AS foo, 2 AS bar FROM MyTable WHERE bar = :bar AND foo = :foo ORDER BY foo, i;",
+			Expected: []sql.Row{},
+			Bindings: map[string]sql.Expression{
+				"bar": expression.NewLiteral(int64(1), sql.Int64),
+				"foo": expression.NewLiteral(int64(1), sql.Int64),
+			},
+		},
+		{
+			Query: "SELECT :foo * 2",
+			Expected: []sql.Row{
+				{2},
+			},
+			Bindings: map[string]sql.Expression{
+				"foo": expression.NewLiteral(int64(1), sql.Int64),
+			},
+		},
+		{
+			Query: "SELECT i from mytable where i in (:foo, :bar) order by 1",
+			Expected: []sql.Row{
+				{1},
+				{2},
+			},
+			Bindings: map[string]sql.Expression{
+				"foo": expression.NewLiteral(int64(1), sql.Int64),
+				"bar": expression.NewLiteral(int64(2), sql.Int64),
+			},
+		},
+		{
+			Query: "SELECT i from mytable where i = :foo * 2",
+			Expected: []sql.Row{
+				{2},
+			},
+			Bindings: map[string]sql.Expression{
+				"foo": expression.NewLiteral(int64(1), sql.Int64),
+			},
+		},
+		{
+			Query: "SELECT i from mytable where 4 = :foo * 2 order by 1",
+			Expected: []sql.Row{
+				{1},
+				{2},
+				{3},
+			},
+			Bindings: map[string]sql.Expression{
+				"foo": expression.NewLiteral(int64(2), sql.Int64),
+			},
+		},
+		{
+			Query: "SELECT i FROM mytable WHERE s = 'first row' ORDER BY i DESC LIMIT ?;",
+			Bindings: map[string]sql.Expression{
+				"v1": expression.NewLiteral(1, sql.Int8),
+			},
+			Expected: []sql.Row{{int64(1)}},
+		},
+		{
+			Query: "SELECT i FROM mytable ORDER BY i LIMIT ? OFFSET 2;",
+			Bindings: map[string]sql.Expression{
+				"v1": expression.NewLiteral(1, sql.Int8),
+				"v2": expression.NewLiteral(1, sql.Int8),
+			},
+			Expected: []sql.Row{{int64(3)}},
+		},
+		{
+			Query: "SELECT sum(?) as x FROM mytable ORDER BY sum(?)",
+			Bindings: map[string]sql.Expression{
+				"v1": expression.NewLiteral(1, sql.Int8),
+				"v2": expression.NewLiteral(1, sql.Int8),
+			},
+			Expected: []sql.Row{{float64(3)}},
+		},
+		{
+			Query: "SELECT (select sum(?) from mytable) as x FROM mytable ORDER BY (select sum(?) from mytable)",
+			Bindings: map[string]sql.Expression{
+				"v1": expression.NewLiteral(1, sql.Int8),
+				"v2": expression.NewLiteral(1, sql.Int8),
+			},
+			Expected: []sql.Row{{float64(3)}, {float64(3)}, {float64(3)}},
+		},
+		{
+			Query: "With x as (select sum(?) from mytable) select sum(?) from x ORDER BY (select sum(?) from mytable)",
+			Bindings: map[string]sql.Expression{
+				"v1": expression.NewLiteral(1, sql.Int8),
+				"v2": expression.NewLiteral(1, sql.Int8),
+				"v3": expression.NewLiteral(1, sql.Int8),
+			},
+			Expected: []sql.Row{{float64(1)}},
+		},
+		{
+			Query: "SELECT CAST(? as CHAR) UNION SELECT CAST(? as CHAR)",
+			Bindings: map[string]sql.Expression{
+				"v1": expression.NewLiteral(1, sql.Int8),
+				"v2": expression.NewLiteral("1", sql.TinyText),
+			},
+			Expected: []sql.Row{{"1"}},
+		},
 	}
+
+	e := NewEngine(t, harness)
 
 	RunQuery(t, e, harness, "CREATE TABLE a (x int, y int, z int)")
 	RunQuery(t, e, harness, "INSERT INTO a VALUES (0,1,1), (1,1,1), (2,1,1), (3,2,2), (4,2,2)")
-	q = "select x, sum(y) from a where x > ? group by ? order by x"
-	for i, tt := range tests {
+	//RunQuery(t, e, harness, "CREATE TABLE mytable (i int primary key, s varchar(20))")
+	//RunQuery(t, e, harness, "INSERT INTO mytable VALUES (1, 'first row'), (2, 'second row'), (3, 'third row')")
+	for _, tt := range qtests {
 		ctx := NewContext(harness)
-		e.PrepareQuery(ctx, q)
-		t.Run(fmt.Sprintf("One query multiple bindings: %d", i), func(t *testing.T) {
-			TestQueryWithContext(t, ctx, e, q, tt.exp, nil, tt.bindings)
+		e.PrepareQuery(ctx, tt.Query)
+		t.Run(fmt.Sprintf("%s", tt.Query), func(t *testing.T) {
+			TestQueryWithContext(t, ctx, e, tt.Query, tt.Expected, tt.ExpectedColumns, tt.Bindings)
 		})
 	}
 }
@@ -4916,7 +5037,7 @@ func TestPreparedQuery(
 		}
 		ctx := NewContextWithEngine(harness, e)
 		TestPreparedQueryWithContext(t, ctx, e, q, expected, expectedCols, bindings)
-		//TestQueryWithContext(t, ctx, e, q, expected, expectedCols, bindings)
+		//TestQueryWithContext(t, ctx, e, q, expected, expectedCols, Bindings)
 	})
 }
 
@@ -4953,19 +5074,16 @@ func TestPreparedQueryWithContext(
 			}
 		})
 	})
+
 	if foundBindVar {
 		t.Skip()
 	}
 
-	// prepare
 	prepared, err := e.Analyzer.PrepareQuery(ctx, bound, nil)
 	e.PreparedData[ctx.Session.ID()] = sqle.PreparedData{
 		Query: q,
 		Node:  prepared,
 	}
-	// then run with the bind vars
-	//_, err := e.PrepareQuery(ctx, q)
-	//require.NoError(err, "Unexpected error for query %s", q)
 
 	sch, iter, err := e.QueryNodeWithBindings(ctx, q, nil, bindVars)
 	require.NoError(err, "Unexpected error for query %s", q)

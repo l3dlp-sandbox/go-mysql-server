@@ -177,7 +177,7 @@ func schemaLength(node sql.Node) int {
 	return schemaLen
 }
 
-// liftCommonTableExpressions lifts With nodes above Union and Distinct
+// hoistCommonTableExpressions lifts With nodes above Union and Distinct
 // nodes.  Currently as parsed, we get Union(CTE(...), ...), and we can
 // transform that to CTE(Union(..., ...)) to make the CTE visible across the
 // Union.
@@ -186,22 +186,22 @@ func schemaLength(node sql.Node) int {
 //   (WITH t AS SELECT ... SELECT ...) UNION ...
 // where the CTE will be visible on the second half of the UNION. We live with
 // it for now.
-func liftCommonTableExpressions(ctx *sql.Context, a *Analyzer, n sql.Node, scope *Scope, sel RuleSelector) (sql.Node, error) {
+func hoistCommonTableExpressions(ctx *sql.Context, a *Analyzer, n sql.Node, scope *Scope, sel RuleSelector) (sql.Node, error) {
 	return plan.TransformUp(n, func(n sql.Node) (sql.Node, error) {
 		if union, isUnion := n.(*plan.Union); isUnion {
 			if cte, isCTE := union.Left().(*plan.With); isCTE && !cte.Recursive {
 				return plan.NewWith(plan.NewUnion(cte.Child, union.Right()), cte.CTEs, cte.Recursive), nil
 			}
-			l, err := liftCommonTableExpressions(ctx, a, union.Left(), scope, sel)
+			l, err := hoistCommonTableExpressions(ctx, a, union.Left(), scope, sel)
 			if err != nil {
 				return nil, err
 			}
-			r, err := liftCommonTableExpressions(ctx, a, union.Right(), scope, sel)
+			r, err := hoistCommonTableExpressions(ctx, a, union.Right(), scope, sel)
 			if err != nil {
 				return nil, err
 			}
 			if _, isCTE := l.(*plan.With); isCTE {
-				return liftCommonTableExpressions(ctx, a, plan.NewUnion(l, r), scope, sel)
+				return hoistCommonTableExpressions(ctx, a, plan.NewUnion(l, r), scope, sel)
 			}
 			return plan.NewUnion(l, r), nil
 		}
@@ -214,7 +214,7 @@ func liftCommonTableExpressions(ctx *sql.Context, a *Analyzer, n sql.Node, scope
 	})
 }
 
-func liftRecursiveCte(ctx *sql.Context, a *Analyzer, n sql.Node, scope *Scope, sel RuleSelector) (sql.Node, error) {
+func hoistRecursiveCte(ctx *sql.Context, a *Analyzer, n sql.Node, scope *Scope, sel RuleSelector) (sql.Node, error) {
 	return plan.TransformUp(n, func(n sql.Node) (sql.Node, error) {
 		ta, ok := n.(*plan.TableAlias)
 		if !ok {

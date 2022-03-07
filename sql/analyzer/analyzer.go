@@ -398,12 +398,11 @@ func (a *Analyzer) AnalyzePrepared(ctx *sql.Context, n sql.Node, scope *Scope) (
 			"qualify_columns",
 			"resolve_columns",
 
-			// once after
 			"subquery_indexes",
 			"in_subquery_indexes",
 			"pushdown_filters",
 
-			// once after
+
 			"track_process",
 			"parallelize",
 			"clear_warnings":
@@ -430,11 +429,7 @@ func (a *Analyzer) analyzeThroughBatch(ctx *sql.Context, n sql.Node, scope *Scop
 }
 
 func (a *Analyzer) analyzeWithSelector(ctx *sql.Context, n sql.Node, scope *Scope, batchSelector, ruleSelector RuleSelector) (sql.Node, error) {
-	span, ctx := ctx.Span("analyze", opentracing.Tags{
-		//"plan": , n.String(),
-	})
-	//a.Debug = true
-	//a.Verbose = true
+	span, ctx := ctx.Span("analyze", opentracing.Tags{})
 	var err error
 	a.Log("starting analysis of node of type: %T", n)
 	for _, batch := range a.Batches {

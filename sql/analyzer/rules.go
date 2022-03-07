@@ -27,9 +27,9 @@ var OnceBeforeDefault = []Rule{
 	{"resolve_variables", resolveVariables},
 	{"resolve_set_variables", resolveSetVariables},
 	{"resolve_views", resolveViews},
-	{"lift_common_table_expressions", liftCommonTableExpressions},
+	{"lift_common_table_expressions", hoistCommonTableExpressions},
 	{"resolve_common_table_expressions", resolveCommonTableExpressions},
-	{"lift_recursive_ctes", liftRecursiveCte},
+	{"lift_recursive_ctes", hoistRecursiveCte},
 	{"resolve_databases", resolveDatabases},
 	{"resolve_tables", resolveTables},
 	{"set_target_schemas", setTargetSchemas},
@@ -42,15 +42,15 @@ var OnceBeforeDefault = []Rule{
 	{"resolve_subqueries", resolveSubqueries},
 	{"resolve_unions", resolveUnions},
 	{"resolve_describe_query", resolveDescribeQuery},
-	{"check_unique_table_names", checkUniqueTableNames},
+	{"check_unique_table_names", validateUniqueTableNames},
 	{"resolve_declarations", resolveDeclarations},
 	{"validate_create_trigger", validateCreateTrigger},
 	{"validate_create_procedure", validateCreateProcedure},
-	{"assign_info_schema", assignInfoSchema},
+	{"assign_info_schema", loadInfoSchema},
 	{"validate_read_only_database", validateReadOnlyDatabase},
 	{"validate_read_only_transaction", validateReadOnlyTransaction},
 	{"validate_database_set", validateDatabaseSet},
-	{"check_privileges", checkPrivileges}, // Ensure that checking privileges happens after db & table resolution
+	{"check_privileges", validatePrivileges}, // Ensure that checking privileges happens after db & table resolution
 	{"strip_decorations", stripDecorations},
 	{"unresolve_tables", unresolveTables},
 }
@@ -77,7 +77,7 @@ var DefaultRules = []Rule{
 	{"resolve_subquery_exprs", resolveSubqueryExpressions},
 	{"replace_cross_joins", replaceCrossJoins},
 	{"move_join_conds_to_filter", moveJoinConditionsToFilter},
-	{"eval_filter", evalFilter},
+	{"eval_filter", simplifyFilters},
 	{"optimize_distinct", optimizeDistinct},
 }
 
