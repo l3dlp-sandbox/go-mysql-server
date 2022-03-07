@@ -14,13 +14,8 @@ import (
 	"github.com/dolthub/vitess/go/vt/proto/query"
 )
 
-var (
-	//DeferredType  = deferredType{}
-
-	// ErrValueNotNil is thrown when a value that was expected to be nil, is not
-	//ErrValueNotNil = errors.NewKind("value not nil: %#v")
-)
-
+// DeferredType is a placeholder for prepared statements
+// that is replaced by the BindVar type on re-analysis.
 type DeferredType interface {
 	Type
 	IsDeferred() bool
@@ -92,4 +87,9 @@ func (t deferredType) IsDeferred() bool {
 
 func (t deferredType) Name() string {
 	return t.bindVar
+}
+
+func IsDeferredType(t Type) bool {
+	_, ok := t.(DeferredType)
+	return ok
 }

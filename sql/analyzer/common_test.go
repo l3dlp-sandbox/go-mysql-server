@@ -157,7 +157,7 @@ func runTestCases(t *testing.T, ctx *sql.Context, testCases []analyzerFnTestCase
 			if context == nil {
 				context = sql.NewEmptyContext()
 			}
-			result, err := f.Apply(context, a, tt.node, tt.scope)
+			result, err := f.Apply(context, a, tt.node, tt.scope, SelectAll)
 			if tt.err != nil {
 				require.Error(t, err)
 				require.True(t, tt.err.Is(err), fmt.Sprintf("Expected error of type %T but got %T", tt.err, err))

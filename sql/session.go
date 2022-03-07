@@ -293,6 +293,7 @@ func (s *BaseSession) SetCurrentDatabase(dbName string) {
 // ID implements the Session interface.
 func (s *BaseSession) ID() uint32 { return s.id }
 
+// SetConnectionId sets the [id] for this session
 func (s *BaseSession) SetConnectionId(id uint32) {
 	s.id = id
 	return

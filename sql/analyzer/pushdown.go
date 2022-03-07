@@ -26,7 +26,7 @@ import (
 // pushdownFilters attempts to push conditions in filters down to individual tables. Tables that implement
 // sql.FilteredTable will get such conditions applied to them. For conditions that have an index, tables that implement
 // sql.IndexAddressableTable will get an appropriate index lookup applied.
-func pushdownFilters(ctx *sql.Context, a *Analyzer, n sql.Node, scope *Scope) (sql.Node, error) {
+func pushdownFilters(ctx *sql.Context, a *Analyzer, n sql.Node, scope *Scope, sel RuleSelector) (sql.Node, error) {
 	span, ctx := ctx.Span("pushdown_filters")
 	defer span.Finish()
 
@@ -58,7 +58,7 @@ func pushdownFiltersAtNode(ctx *sql.Context, a *Analyzer, n sql.Node, scope *Sco
 
 // pushdownSubqueryAliasFilters attempts to push conditions in filters down to
 // individual subquery aliases.
-func pushdownSubqueryAliasFilters(ctx *sql.Context, a *Analyzer, n sql.Node, scope *Scope) (sql.Node, error) {
+func pushdownSubqueryAliasFilters(ctx *sql.Context, a *Analyzer, n sql.Node, scope *Scope, sel RuleSelector) (sql.Node, error) {
 	span, ctx := ctx.Span("pushdown_subquery_alias_filters")
 	defer span.Finish()
 
@@ -75,7 +75,7 @@ func pushdownSubqueryAliasFilters(ctx *sql.Context, a *Analyzer, n sql.Node, sco
 }
 
 // pushdownProjections attempts to push projections down to individual tables that implement sql.ProjectTable
-func pushdownProjections(ctx *sql.Context, a *Analyzer, n sql.Node, scope *Scope) (sql.Node, error) {
+func pushdownProjections(ctx *sql.Context, a *Analyzer, n sql.Node, scope *Scope, sel RuleSelector) (sql.Node, error) {
 	span, ctx := ctx.Span("pushdown_projections")
 	defer span.Finish()
 
@@ -709,7 +709,7 @@ func (es exprSlice) String() string {
 // stripDecorations removes *plan.DecoratedNode that wrap plan.ResolvedTable instances.
 // Without this step, some prepared statement reanalysis rules fail to identify
 // filter-table relationships.
-func stripDecorations(ctx *sql.Context, a *Analyzer, node sql.Node, scope *Scope) (sql.Node, error) {
+func stripDecorations(ctx *sql.Context, a *Analyzer, node sql.Node, scope *Scope, sel RuleSelector) (sql.Node, error) {
 	return plan.TransformUp(node, func(node sql.Node) (sql.Node, error) {
 		switch n := node.(type) {
 		case *plan.DecoratedNode:

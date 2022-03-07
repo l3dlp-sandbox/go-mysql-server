@@ -22,7 +22,10 @@ import (
 )
 
 // RuleFunc is the function to be applied in a rule.
-type RuleFunc func(*sql.Context, *Analyzer, sql.Node, *Scope) (sql.Node, error)
+type RuleFunc func(*sql.Context, *Analyzer, sql.Node, *Scope, RuleSelector) (sql.Node, error)
+
+// RuleSelector filters batch or rule names from analysis.
+type RuleSelector func(string) bool
 
 // Rule to transform nodes.
 type Rule struct {
@@ -45,10 +48,10 @@ type Batch struct {
 // If the batch's max number of iterations is reached without achieving stabilization (batch evaluation no longer
 // changes the node), then this method returns ErrMaxAnalysisIters.
 func (b *Batch) Eval(ctx *sql.Context, a *Analyzer, n sql.Node, scope *Scope) (sql.Node, error) {
-	return b.EvalWithSelector(ctx, a, n, scope, analyzeAll)
+	return b.EvalWithSelector(ctx, a, n, scope, SelectAll)
 }
 
-func (b *Batch) EvalWithSelector(ctx *sql.Context, a *Analyzer, n sql.Node, scope *Scope, sel func(string) bool) (sql.Node, error) {
+func (b *Batch) EvalWithSelector(ctx *sql.Context, a *Analyzer, n sql.Node, scope *Scope, sel RuleSelector) (sql.Node, error) {
 	if b.Iterations == 0 {
 		return n, nil
 	}
@@ -89,7 +92,7 @@ func (b *Batch) EvalWithSelector(ctx *sql.Context, a *Analyzer, n sql.Node, scop
 // evalOnce returns the result of evaluating a batch of rules on the node given. In the result of an error, the result
 // of the last successful transformation is returned along with the error. If no transformation was successful, the
 // input node is returned as-is.
-func (b *Batch) evalOnce(ctx *sql.Context, a *Analyzer, n sql.Node, scope *Scope, sel func(string) bool) (sql.Node, error) {
+func (b *Batch) evalOnce(ctx *sql.Context, a *Analyzer, n sql.Node, scope *Scope, sel RuleSelector) (sql.Node, error) {
 	prev := n
 	for _, rule := range b.Rules {
 		if !sel(rule.Name) {
@@ -99,7 +102,7 @@ func (b *Batch) evalOnce(ctx *sql.Context, a *Analyzer, n sql.Node, scope *Scope
 		var err error
 		a.Log("Evaluating rule %s", rule.Name)
 		a.PushDebugContext(rule.Name)
-		next, err := rule.Apply(ctx, a, prev, scope)
+		next, err := rule.Apply(ctx, a, prev, scope, sel)
 		if next != nil {
 			a.LogDiff(prev, next)
 			prev = next

@@ -124,11 +124,11 @@ func (a *Arithmetic) IsNullable() bool {
 
 // Type returns the greatest type for given operation.
 func (a *Arithmetic) Type() sql.Type {
-	// TODO what if both BindVars?
-	if _, ok := a.Right.Type().(sql.DeferredType); ok {
+	//TODO: what if both BindVars? should be constant folded
+	if sql.IsDeferredType(a.Right.Type()) {
 		return a.Right.Type()
 	}
-	if _, ok := a.Left.Type().(sql.DeferredType); ok {
+	if sql.IsDeferredType(a.Left.Type()) {
 		return a.Left.Type()
 	}
 

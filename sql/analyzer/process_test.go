@@ -39,7 +39,7 @@ func TestTrackProcessSubquery(t *testing.T) {
 		),
 	)
 
-	result, err := rule.Apply(sql.NewEmptyContext(), a, node, nil)
+	result, err := rule.Apply(sql.NewEmptyContext(), a, node, nil, SelectAll)
 	require.NoError(err)
 
 	expectedChild := plan.NewProject(

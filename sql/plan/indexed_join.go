@@ -24,6 +24,8 @@ import (
 )
 
 // An IndexedJoin is a join that uses index lookups for the secondary table.
+// IndexedJoin does not implement sql.Expressioner because FixFieldIndexesForExpressions
+// is not aware of the prefixed row.
 type IndexedJoin struct {
 	// The primary and secondary table nodes. The normal meanings of Left and
 	// Right in BinaryNode aren't necessarily meaningful here -- the Left node is always the primary table, and the Right
@@ -36,19 +38,6 @@ type IndexedJoin struct {
 	joinType JoinType
 	scopeLen int
 }
-
-//var _ sql.Expressioner = (*IndexedJoin)(nil)
-//
-//func (ij *IndexedJoin) Expressions() []sql.Expression {
-//	return []sql.Expression{ij.Cond}
-//}
-//
-//func (ij *IndexedJoin) WithExpressions(exprs ...sql.Expression) (sql.Node, error) {
-//	if len(exprs) != 1 {
-//		return nil, sql.ErrInvalidChildrenNumber.New(ij, len(exprs), 1)
-//	}
-//	return NewIndexedJoin(ij.left, ij.right, ij.joinType, exprs[0], ij.scopeLen), nil
-//}
 
 // JoinType returns the join type for this indexed join
 func (ij *IndexedJoin) JoinType() JoinType {

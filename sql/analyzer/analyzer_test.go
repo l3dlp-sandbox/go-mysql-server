@@ -17,7 +17,6 @@ package analyzer
 import (
 	"context"
 	"fmt"
-	"github.com/dolthub/go-mysql-server/sql/expression/function/aggregation"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -25,6 +24,7 @@ import (
 	"github.com/dolthub/go-mysql-server/memory"
 	"github.com/dolthub/go-mysql-server/sql"
 	"github.com/dolthub/go-mysql-server/sql/expression"
+	"github.com/dolthub/go-mysql-server/sql/expression/function/aggregation"
 	"github.com/dolthub/go-mysql-server/sql/plan"
 )
 
@@ -42,7 +42,7 @@ func TestMaxIterations(t *testing.T) {
 
 	count := 0
 	a := withoutProcessTracking(NewBuilder(provider).AddPostAnalyzeRule("loop",
-		func(c *sql.Context, a *Analyzer, n sql.Node, scope *Scope) (sql.Node, error) {
+		func(c *sql.Context, a *Analyzer, n sql.Node, scope *Scope, sel RuleSelector) (sql.Node, error) {
 
 			switch n.(type) {
 			case *plan.ResolvedTable:
@@ -327,9 +327,9 @@ func TestReorderProjectionUnresolvedChild(t *testing.T) {
 }
 
 func TestDeepCopyNode(t *testing.T) {
-	tests := []struct{
+	tests := []struct {
 		node sql.Node
-		exp sql.Node
+		exp  sql.Node
 	}{
 		{
 			node: plan.NewProject(
@@ -349,7 +349,7 @@ func TestDeepCopyNode(t *testing.T) {
 						expression.NewEquals(
 							expression.NewBindVar("v1"),
 							expression.NewBindVar("v2"),
-							),
+						),
 						plan.NewUnresolvedTable("mytable3", ""),
 					),
 				),

@@ -66,12 +66,12 @@ func TestEraseProjection(t *testing.T) {
 		expected,
 	)
 
-	result, err := f.Apply(sql.NewEmptyContext(), NewDefault(nil), node, nil)
+	result, err := f.Apply(sql.NewEmptyContext(), NewDefault(nil), node, nil, SelectAll)
 	require.NoError(err)
 
 	require.Equal(expected, result)
 
-	result, err = f.Apply(sql.NewEmptyContext(), NewDefault(nil), expected, nil)
+	result, err = f.Apply(sql.NewEmptyContext(), NewDefault(nil), expected, nil, SelectAll)
 	require.NoError(err)
 
 	require.Equal(expected, result)
@@ -119,7 +119,7 @@ func TestOptimizeDistinct(t *testing.T) {
 
 	for _, tt := range testCases {
 		t.Run(tt.name, func(t *testing.T) {
-			node, err := rule.Apply(sql.NewEmptyContext(), nil, plan.NewDistinct(tt.child), nil)
+			node, err := rule.Apply(sql.NewEmptyContext(), nil, plan.NewDistinct(tt.child), nil, SelectAll)
 			require.NoError(t, err)
 
 			_, ok := node.(*plan.OrderedDistinct)
@@ -161,7 +161,7 @@ func TestMoveJoinConditionsToFilter(t *testing.T) {
 		),
 	)
 
-	result, err := rule.Apply(sql.NewEmptyContext(), NewDefault(nil), node, nil)
+	result, err := rule.Apply(sql.NewEmptyContext(), NewDefault(nil), node, nil, SelectAll)
 	require.NoError(err)
 
 	var expected sql.Node = plan.NewFilter(
@@ -196,7 +196,7 @@ func TestMoveJoinConditionsToFilter(t *testing.T) {
 		),
 	)
 
-	result, err = rule.Apply(sql.NewEmptyContext(), NewDefault(nil), node, nil)
+	result, err = rule.Apply(sql.NewEmptyContext(), NewDefault(nil), node, nil, SelectAll)
 	require.NoError(err)
 
 	expected = plan.NewFilter(
@@ -231,7 +231,7 @@ func TestMoveJoinConditionsToFilter(t *testing.T) {
 		),
 	)
 
-	result, err = rule.Apply(sql.NewEmptyContext(), NewDefault(nil), node, nil)
+	result, err = rule.Apply(sql.NewEmptyContext(), NewDefault(nil), node, nil, SelectAll)
 	require.NoError(err)
 
 	expected = plan.NewFilter(
@@ -271,7 +271,7 @@ func TestMoveJoinConditionsToFilter(t *testing.T) {
 		),
 	)
 
-	result, err = rule.Apply(sql.NewEmptyContext(), NewDefault(nil), node, nil)
+	result, err = rule.Apply(sql.NewEmptyContext(), NewDefault(nil), node, nil, SelectAll)
 	require.NoError(err)
 
 	expected = plan.NewFilter(
@@ -392,7 +392,7 @@ func TestEvalFilter(t *testing.T) {
 		t.Run(tt.filter.String(), func(t *testing.T) {
 			require := require.New(t)
 			node := plan.NewFilter(tt.filter, plan.NewResolvedTable(inner, nil, nil))
-			result, err := rule.Apply(sql.NewEmptyContext(), NewDefault(nil), node, nil)
+			result, err := rule.Apply(sql.NewEmptyContext(), NewDefault(nil), node, nil, SelectAll)
 			require.NoError(err)
 			require.Equal(tt.expected, result)
 		})
@@ -438,6 +438,7 @@ func TestRemoveUnnecessaryConverts(t *testing.T) {
 				NewDefault(nil),
 				node,
 				nil,
+				SelectAll,
 			)
 			require.NoError(err)
 

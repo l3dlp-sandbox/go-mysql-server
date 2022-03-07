@@ -115,7 +115,7 @@ var DefaultValidationRules = []Rule{
 }
 
 // validateLimitAndOffset ensures that only integer literals are used for limit and offset values
-func validateLimitAndOffset(ctx *sql.Context, a *Analyzer, n sql.Node, scope *Scope) (sql.Node, error) {
+func validateLimitAndOffset(ctx *sql.Context, a *Analyzer, n sql.Node, scope *Scope, sel RuleSelector) (sql.Node, error) {
 	return plan.TransformUp(n, func(n sql.Node) (sql.Node, error) {
 		switch n := n.(type) {
 		case *plan.Limit:
@@ -172,7 +172,7 @@ func validateLimitAndOffset(ctx *sql.Context, a *Analyzer, n sql.Node, scope *Sc
 	})
 }
 
-func validateIsResolved(ctx *sql.Context, a *Analyzer, n sql.Node, scope *Scope) (sql.Node, error) {
+func validateIsResolved(ctx *sql.Context, a *Analyzer, n sql.Node, scope *Scope, sel RuleSelector) (sql.Node, error) {
 	span, _ := ctx.Span("validate_is_resolved")
 	defer span.Finish()
 
@@ -212,7 +212,7 @@ func unresolvedError(n sql.Node) error {
 	return ErrValidationResolved.New(n)
 }
 
-func validateOrderBy(ctx *sql.Context, a *Analyzer, n sql.Node, scope *Scope) (sql.Node, error) {
+func validateOrderBy(ctx *sql.Context, a *Analyzer, n sql.Node, scope *Scope, sel RuleSelector) (sql.Node, error) {
 	span, _ := ctx.Span("validate_order_by")
 	defer span.Finish()
 
@@ -229,7 +229,7 @@ func validateOrderBy(ctx *sql.Context, a *Analyzer, n sql.Node, scope *Scope) (s
 	return n, nil
 }
 
-func validateGroupBy(ctx *sql.Context, a *Analyzer, n sql.Node, scope *Scope) (sql.Node, error) {
+func validateGroupBy(ctx *sql.Context, a *Analyzer, n sql.Node, scope *Scope, sel RuleSelector) (sql.Node, error) {
 	span, _ := ctx.Span("validate_group_by")
 	defer span.Finish()
 
@@ -291,7 +291,7 @@ func expressionReferencesOnlyGroupBys(groupBys []string, expr sql.Expression) bo
 	return valid
 }
 
-func validateSchemaSource(ctx *sql.Context, a *Analyzer, n sql.Node, scope *Scope) (sql.Node, error) {
+func validateSchemaSource(ctx *sql.Context, a *Analyzer, n sql.Node, scope *Scope, sel RuleSelector) (sql.Node, error) {
 	span, _ := ctx.Span("validate_schema_source")
 	defer span.Finish()
 
@@ -307,7 +307,7 @@ func validateSchemaSource(ctx *sql.Context, a *Analyzer, n sql.Node, scope *Scop
 	return n, nil
 }
 
-func validateIndexCreation(ctx *sql.Context, a *Analyzer, n sql.Node, scope *Scope) (sql.Node, error) {
+func validateIndexCreation(ctx *sql.Context, a *Analyzer, n sql.Node, scope *Scope, sel RuleSelector) (sql.Node, error) {
 	span, _ := ctx.Span("validate_index_creation")
 	defer span.Finish()
 
@@ -348,7 +348,7 @@ func validateSchema(t *plan.ResolvedTable) error {
 	return nil
 }
 
-func validateUnionSchemasMatch(ctx *sql.Context, a *Analyzer, n sql.Node, scope *Scope) (sql.Node, error) {
+func validateUnionSchemasMatch(ctx *sql.Context, a *Analyzer, n sql.Node, scope *Scope, sel RuleSelector) (sql.Node, error) {
 	span, _ := ctx.Span("validate_union_schemas_match")
 	defer span.Finish()
 
@@ -382,7 +382,7 @@ func validateUnionSchemasMatch(ctx *sql.Context, a *Analyzer, n sql.Node, scope 
 	return n, nil
 }
 
-func validateCaseResultTypes(ctx *sql.Context, a *Analyzer, n sql.Node, scope *Scope) (sql.Node, error) {
+func validateCaseResultTypes(ctx *sql.Context, a *Analyzer, n sql.Node, scope *Scope, sel RuleSelector) (sql.Node, error) {
 	span, ctx := ctx.Span("validate_case_result_types")
 	defer span.Finish()
 
@@ -418,7 +418,7 @@ func validateCaseResultTypes(ctx *sql.Context, a *Analyzer, n sql.Node, scope *S
 	return n, nil
 }
 
-func validateIntervalUsage(ctx *sql.Context, a *Analyzer, n sql.Node, scope *Scope) (sql.Node, error) {
+func validateIntervalUsage(ctx *sql.Context, a *Analyzer, n sql.Node, scope *Scope, sel RuleSelector) (sql.Node, error) {
 	var invalid bool
 	plan.InspectExpressions(n, func(e sql.Expression) bool {
 		// If it's already invalid just skip everything else.
@@ -447,7 +447,7 @@ func validateIntervalUsage(ctx *sql.Context, a *Analyzer, n sql.Node, scope *Sco
 	return n, nil
 }
 
-func validateExplodeUsage(ctx *sql.Context, a *Analyzer, n sql.Node, scope *Scope) (sql.Node, error) {
+func validateExplodeUsage(ctx *sql.Context, a *Analyzer, n sql.Node, scope *Scope, sel RuleSelector) (sql.Node, error) {
 	var invalid bool
 	plan.InspectExpressions(n, func(e sql.Expression) bool {
 		// If it's already invalid just skip everything else.
@@ -472,7 +472,7 @@ func validateExplodeUsage(ctx *sql.Context, a *Analyzer, n sql.Node, scope *Scop
 	return n, nil
 }
 
-func validateOperands(ctx *sql.Context, a *Analyzer, n sql.Node, scope *Scope) (sql.Node, error) {
+func validateOperands(ctx *sql.Context, a *Analyzer, n sql.Node, scope *Scope, sel RuleSelector) (sql.Node, error) {
 	// Validate that the number of columns in an operand or a top level
 	// expression are as expected. The current rules are:
 	// * Every top level expression of a node must have 1 column.
@@ -549,7 +549,7 @@ func validateOperands(ctx *sql.Context, a *Analyzer, n sql.Node, scope *Scope) (
 	return n, nil
 }
 
-func validateSubqueryColumns(ctx *sql.Context, a *Analyzer, n sql.Node, scope *Scope) (sql.Node, error) {
+func validateSubqueryColumns(ctx *sql.Context, a *Analyzer, n sql.Node, scope *Scope, sel RuleSelector) (sql.Node, error) {
 	// Then validate that every subquery has field indexes within the correct range
 	// TODO: Why is this only for subqueries?
 
@@ -623,7 +623,7 @@ func tableColsContains(strs []tableCol, target tableCol) bool {
 }
 
 // validateReadOnlyDatabase invalidates queries that attempt to write to ReadOnlyDatabases.
-func validateReadOnlyDatabase(ctx *sql.Context, a *Analyzer, n sql.Node, scope *Scope) (sql.Node, error) {
+func validateReadOnlyDatabase(ctx *sql.Context, a *Analyzer, n sql.Node, scope *Scope, sel RuleSelector) (sql.Node, error) {
 	valid := true
 	var readOnlyDB sql.ReadOnlyDatabase
 
@@ -684,7 +684,7 @@ func validateReadOnlyDatabase(ctx *sql.Context, a *Analyzer, n sql.Node, scope *
 }
 
 // validateReadOnlyTransaction invalidates read only transactions that try to perform improper write operations.
-func validateReadOnlyTransaction(ctx *sql.Context, a *Analyzer, n sql.Node, scope *Scope) (sql.Node, error) {
+func validateReadOnlyTransaction(ctx *sql.Context, a *Analyzer, n sql.Node, scope *Scope, sel RuleSelector) (sql.Node, error) {
 	t := ctx.GetTransaction()
 
 	if t == nil {
@@ -759,7 +759,7 @@ func validateReadOnlyTransaction(ctx *sql.Context, a *Analyzer, n sql.Node, scop
 // See https://github.com/dolthub/go-mysql-server/issues/542 for some queries
 // that should be supported but that currently trigger this validation because
 // aggregation expressions end up in the wrong place.
-func validateAggregations(ctx *sql.Context, a *Analyzer, n sql.Node, scope *Scope) (sql.Node, error) {
+func validateAggregations(ctx *sql.Context, a *Analyzer, n sql.Node, scope *Scope, sel RuleSelector) (sql.Node, error) {
 	var invalidExpr sql.Expression
 	checkExpressions := func(exprs []sql.Expression) bool {
 		for _, e := range exprs {

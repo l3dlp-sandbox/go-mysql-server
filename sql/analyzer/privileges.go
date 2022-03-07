@@ -24,7 +24,7 @@ import (
 
 // checkPrivileges verifies the given statement (node n) by checking that the calling user has the necessary privileges
 // to execute it.
-func checkPrivileges(ctx *sql.Context, a *Analyzer, n sql.Node, scope *Scope) (sql.Node, error) {
+func checkPrivileges(ctx *sql.Context, a *Analyzer, n sql.Node, scope *Scope, sel RuleSelector) (sql.Node, error) {
 	//TODO: add the remaining statements that interact with the grant tables
 	grantTables := a.Catalog.GrantTables
 	switch n.(type) {

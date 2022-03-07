@@ -24,7 +24,7 @@ import (
 	"github.com/dolthub/go-mysql-server/sql/plan"
 )
 
-func processTruncate(ctx *sql.Context, a *Analyzer, n sql.Node, scope *Scope) (sql.Node, error) {
+func processTruncate(ctx *sql.Context, a *Analyzer, n sql.Node, scope *Scope, sel RuleSelector) (sql.Node, error) {
 	span, _ := ctx.Span("processTruncate")
 	defer span.Finish()
 

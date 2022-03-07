@@ -16,7 +16,6 @@ package analyzer
 
 import (
 	"fmt"
-	"github.com/dolthub/go-mysql-server/sql/expression"
 	"os"
 	"reflect"
 	"strings"
@@ -27,6 +26,7 @@ import (
 	"gopkg.in/src-d/go-errors.v1"
 
 	"github.com/dolthub/go-mysql-server/sql"
+	"github.com/dolthub/go-mysql-server/sql/expression"
 	"github.com/dolthub/go-mysql-server/sql/plan"
 )
 
@@ -342,7 +342,7 @@ func (a *Analyzer) PopDebugContext() {
 	}
 }
 
-func analyzeAll(string) bool { return true }
+func SelectAll(string) bool { return true }
 
 // Analyze applies the transformation rules to the node given. In the case of an error, the last successfully
 // transformed node is returned along with the error.
@@ -351,12 +351,12 @@ func (a *Analyzer) Analyze(ctx *sql.Context, n sql.Node, scope *Scope) (sql.Node
 		switch n {
 		// prepared statement rules are incompatible with default rules
 		case "strip_decorations",
-		    "unresolve_tables":
-		    	return false
+			"unresolve_tables":
+			return false
 		}
 		return true
 	}
-	return a.analyzeWithSelector(ctx, n, scope, analyzeAll, rule_sel)
+	return a.analyzeWithSelector(ctx, n, scope, SelectAll, rule_sel)
 }
 
 // PrepareQuery applies a partial set of transformations to a prepared plan.
@@ -369,11 +369,11 @@ func (a *Analyzer) PrepareQuery(ctx *sql.Context, n sql.Node, scope *Scope) (sql
 			"clear_warnings",
 			"strip_decorations",
 			"unresolve_tables":
-				return false
+			return false
 		}
 		return true
 	}
-	return a.analyzeWithSelector(ctx, n, scope, analyzeAll, rule_sel)
+	return a.analyzeWithSelector(ctx, n, scope, SelectAll, rule_sel)
 }
 
 // AnalyzePrepared runs a partial rule set against a previously analyzed plan.
@@ -407,14 +407,14 @@ func (a *Analyzer) AnalyzePrepared(ctx *sql.Context, n sql.Node, scope *Scope) (
 			"track_process",
 			"parallelize",
 			"clear_warnings":
-				return true
+			return true
 		}
 		return false
 	}
-	return a.analyzeWithSelector(ctx, n, scope, analyzeAll, sel)
+	return a.analyzeWithSelector(ctx, n, scope, SelectAll, sel)
 }
 
-func (a *Analyzer) analyzeThroughBatch(ctx *sql.Context, n sql.Node, scope *Scope, until string) (sql.Node, error) {
+func (a *Analyzer) analyzeThroughBatch(ctx *sql.Context, n sql.Node, scope *Scope, until string, sel RuleSelector) (sql.Node, error) {
 	stop := false
 	return a.analyzeWithSelector(ctx, n, scope, func(desc string) bool {
 		if stop {
@@ -426,15 +426,15 @@ func (a *Analyzer) analyzeThroughBatch(ctx *sql.Context, n sql.Node, scope *Scop
 		// we return true even for the matching description; only start
 		// returning false after this batch.
 		return true
-	}, analyzeAll)
+	}, sel)
 }
 
-func (a *Analyzer) analyzeWithSelector(ctx *sql.Context, n sql.Node, scope *Scope, batchSelector, ruleSelector func(d string) bool) (sql.Node, error) {
+func (a *Analyzer) analyzeWithSelector(ctx *sql.Context, n sql.Node, scope *Scope, batchSelector, ruleSelector RuleSelector) (sql.Node, error) {
 	span, ctx := ctx.Span("analyze", opentracing.Tags{
 		//"plan": , n.String(),
 	})
-	a.Debug = true
-	a.Verbose = true
+	//a.Debug = true
+	//a.Verbose = true
 	var err error
 	a.Log("starting analysis of node of type: %T", n)
 	for _, batch := range a.Batches {
@@ -460,7 +460,7 @@ func (a *Analyzer) analyzeWithSelector(ctx *sql.Context, n sql.Node, scope *Scop
 	return n, err
 }
 
-func (a *Analyzer) analyzeStartingAtBatch(ctx *sql.Context, n sql.Node, scope *Scope, startAt string) (sql.Node, error) {
+func (a *Analyzer) analyzeStartingAtBatch(ctx *sql.Context, n sql.Node, scope *Scope, startAt string, sel RuleSelector) (sql.Node, error) {
 	start := false
 	return a.analyzeWithSelector(ctx, n, scope, func(desc string) bool {
 		if desc == startAt {
@@ -470,7 +470,7 @@ func (a *Analyzer) analyzeStartingAtBatch(ctx *sql.Context, n sql.Node, scope *S
 			return true
 		}
 		return false
-	}, analyzeAll)
+	}, sel)
 }
 
 func DeepCopyNode(node sql.Node) (sql.Node, error) {

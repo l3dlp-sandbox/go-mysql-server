@@ -4885,7 +4885,7 @@ func TestQuery(
 	expected []sql.Row,
 	expectedCols []*sql.Column,
 	bindings map[string]sql.Expression,
-	) {
+) {
 	t.Run(q, func(t *testing.T) {
 		if sh, ok := harness.(SkippingHarness); ok {
 			if sh.SkipQueryTest(q) {
@@ -4907,7 +4907,7 @@ func TestPreparedQuery(
 	expected []sql.Row,
 	expectedCols []*sql.Column,
 	bindings map[string]sql.Expression,
-	) {
+) {
 	t.Run(q, func(t *testing.T) {
 		if sh, ok := harness.(SkippingHarness); ok {
 			if sh.SkipQueryTest(q) {
@@ -4928,7 +4928,7 @@ func TestPreparedQueryWithContext(
 	expected []sql.Row,
 	expectedCols []*sql.Column,
 	bindings map[string]sql.Expression,
-	) {
+) {
 	require := require.New(t)
 	parsed, err := parse.Parse(ctx, q)
 	bindVars := make(map[string]sql.Expression)
@@ -4986,7 +4986,7 @@ func TestQueryWithContext(
 	expected []sql.Row,
 	expectedCols []*sql.Column,
 	bindings map[string]sql.Expression,
-	) {
+) {
 	require := require.New(t)
 	sch, iter, err := e.QueryWithBindings(ctx, q, bindings)
 	require.NoError(err, "Unexpected error for query %s", q)
@@ -5007,7 +5007,7 @@ func checkResults(
 	sch sql.Schema,
 	rows []sql.Row,
 	q string,
-	) {
+) {
 	widenedRows := WidenRows(sch, rows)
 	widenedExpected := WidenRows(sch, expected)
 

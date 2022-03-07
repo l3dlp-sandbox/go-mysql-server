@@ -33,6 +33,9 @@ func ApplyBindings(n sql.Node, bindings map[string]sql.Expression) (sql.Node, er
 				return val, nil
 			}
 		case *expression.GetField:
+			//TODO: GetField aliases derived from arithmetic
+			// expressions should have the arithmetic types
+			// re-evaluated
 			t, ok := e.Type().(sql.DeferredType)
 			if !ok {
 				return expr, nil
@@ -49,11 +52,22 @@ func ApplyBindings(n sql.Node, bindings map[string]sql.Expression) (sql.Node, er
 	return TransformUpWithOpaque(n, func(node sql.Node) (sql.Node, error) {
 		switch n := node.(type) {
 		case *IndexedJoin:
+			// *plan.IndexedJoin cannot implement sql.Expressioner
+			// because nested-join schemas cannot be altered (the
+			// column indexes get mis-ordered by FixFieldIndexesForExpressions)
 			cond, err := expression.TransformUp(n.Cond, fixBindings)
 			if err != nil {
 				return nil, err
 			}
 			return NewIndexedJoin(n.left, n.right, n.joinType, cond, n.scopeLen), nil
+		case *InsertInto:
+			// we analyze insert .Source separately from .Destination,
+			// so .Source is not a child node
+			newSource, err := ApplyBindings(n.Source, bindings)
+			if err != nil {
+				return nil, err
+			}
+			return n.WithSource(newSource), nil
 		}
 		return TransformExpressionsUp(node, fixBindings)
 	})

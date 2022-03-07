@@ -48,7 +48,7 @@ func isDualTable(t sql.Table) bool {
 	return t.Name() == dualTableName && t.Schema().Equals(dualTableSchema.Schema)
 }
 
-func resolveTables(ctx *sql.Context, a *Analyzer, n sql.Node, scope *Scope) (sql.Node, error) {
+func resolveTables(ctx *sql.Context, a *Analyzer, n sql.Node, scope *Scope, sel RuleSelector) (sql.Node, error) {
 	span, _ := ctx.Span("resolve_tables")
 	defer span.Finish()
 
@@ -109,7 +109,7 @@ func resolveTable(ctx *sql.Context, t *plan.UnresolvedTable, a *Analyzer) (sql.N
 
 // setTargetSchemas fills in the target schema for any nodes in the tree that operate on a table node but also want to
 // store supplementary schema information. This is useful for lazy resolution of column default values.
-func setTargetSchemas(ctx *sql.Context, a *Analyzer, n sql.Node, scope *Scope) (sql.Node, error) {
+func setTargetSchemas(ctx *sql.Context, a *Analyzer, n sql.Node, scope *Scope, sel RuleSelector) (sql.Node, error) {
 	span, _ := ctx.Span("set_target_schema")
 	defer span.Finish()
 
@@ -150,7 +150,7 @@ func handleTableLookupFailure(err error, tableName string, dbName string, a *Ana
 // unresolveTables is a quick and dirty way to make prepared statement reanalysis
 // resolve the most up-to-date table roots while preserving projections folded into
 // table scans.
-func unresolveTables(ctx *sql.Context, a *Analyzer, node sql.Node, scope *Scope) (sql.Node, error) {
+func unresolveTables(ctx *sql.Context, a *Analyzer, node sql.Node, scope *Scope, sel RuleSelector) (sql.Node, error) {
 	return plan.TransformUp(node, func(n sql.Node) (sql.Node, error) {
 		var t *plan.ResolvedTable
 		switch n := n.(type) {
@@ -217,4 +217,3 @@ func transferProjections(from, to *plan.ResolvedTable) sql.Node {
 	newTable := pt.WithProjection(projections)
 	return plan.NewResolvedTable(newTable, to.Database, to.AsOf)
 }
-

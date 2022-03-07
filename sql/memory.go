@@ -212,7 +212,7 @@ func (m *MemoryManager) NewRows2Cache() (Rows2Cache, DisposeFunc) {
 func (m *MemoryManager) addCache(c Disposable) (pos uint64) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	defer func() { m.token++ }()
+	m.token++
 	m.caches[m.token] = c
 	return m.token
 }

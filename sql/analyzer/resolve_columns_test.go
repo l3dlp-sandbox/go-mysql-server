@@ -49,7 +49,7 @@ func TestQualifyColumnsProject(t *testing.T) {
 		),
 	)
 
-	result, err := qualifyColumns(sql.NewEmptyContext(), NewDefault(nil), node, nil)
+	result, err := qualifyColumns(sql.NewEmptyContext(), NewDefault(nil), node, nil, SelectAll)
 	require.NoError(err)
 
 	expected := plan.NewProject(
@@ -86,7 +86,7 @@ func TestMisusedAlias(t *testing.T) {
 		plan.NewResolvedTable(table, nil, nil),
 	)
 
-	_, err := f.Apply(sql.NewEmptyContext(), nil, node, nil)
+	_, err := f.Apply(sql.NewEmptyContext(), nil, node, nil, SelectAll)
 	require.EqualError(err, sql.ErrMisusedAlias.New("alias_i").Error())
 }
 
@@ -115,7 +115,7 @@ func TestQualifyVariables(t *testing.T) {
 		plan.NewResolvedTable(globalTable, nil, nil),
 	)
 
-	result, err := f.Apply(sql.NewEmptyContext(), nil, node, nil)
+	result, err := f.Apply(sql.NewEmptyContext(), nil, node, nil, SelectAll)
 	assert.NoError(err)
 	assert.Equal(expected, result)
 
@@ -137,7 +137,7 @@ func TestQualifyVariables(t *testing.T) {
 		plan.NewResolvedTable(sessionTable, nil, nil),
 	)
 
-	result, err = f.Apply(sql.NewEmptyContext(), nil, node, nil)
+	result, err = f.Apply(sql.NewEmptyContext(), nil, node, nil, SelectAll)
 	assert.NoError(err)
 	assert.Equal(expected, result)
 }
@@ -416,7 +416,7 @@ func TestQualifyColumnsQualifiedStar(t *testing.T) {
 		plan.NewResolvedTable(table, nil, nil),
 	)
 
-	result, err := f.Apply(sql.NewEmptyContext(), nil, node, nil)
+	result, err := f.Apply(sql.NewEmptyContext(), nil, node, nil, SelectAll)
 	require.NoError(err)
 	require.Equal(expected, result)
 }
@@ -663,7 +663,7 @@ func TestPushdownGroupByAliases(t *testing.T) {
 		),
 	)
 
-	result, err := pushdownGroupByAliases(sql.NewEmptyContext(), a, node, nil)
+	result, err := pushdownGroupByAliases(sql.NewEmptyContext(), a, node, nil, SelectAll)
 	require.NoError(err)
 
 	require.Equal(expected, result)

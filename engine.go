@@ -161,7 +161,7 @@ func (e *Engine) QueryNodeWithBindings(
 	query string,
 	parsed sql.Node,
 	bindings map[string]sql.Expression,
-	) (sql.Schema, sql.RowIter, error) {
+) (sql.Schema, sql.RowIter, error) {
 	var (
 		analyzed sql.Node
 		iter     sql.RowIter
@@ -248,7 +248,7 @@ func (e *Engine) CloseSession(ctx *sql.Context) {
 func (e *Engine) analyzeQuery(ctx *sql.Context, query string, parsed sql.Node, bindings map[string]sql.Expression) (sql.Node, error) {
 	var (
 		analyzed sql.Node
-		err error
+		err      error
 	)
 
 	if parsed == nil {

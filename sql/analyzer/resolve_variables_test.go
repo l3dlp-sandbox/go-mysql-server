@@ -161,7 +161,7 @@ func TestResolveColumnsSession(t *testing.T) {
 		plan.NewResolvedTable(dualTable, nil, nil),
 	)
 
-	result, err := resolveVariables(ctx, NewDefault(nil), node, nil)
+	result, err := resolveVariables(ctx, NewDefault(nil), node, nil, SelectAll)
 	require.NoError(err)
 
 	expected := plan.NewProject(

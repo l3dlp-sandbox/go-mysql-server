@@ -348,7 +348,7 @@ func TestResolveOrderByLiterals(t *testing.T) {
 		plan.NewResolvedTable(table, nil, nil),
 	)
 
-	result, err := f.Apply(sql.NewEmptyContext(), NewDefault(nil), node, nil)
+	result, err := f.Apply(sql.NewEmptyContext(), NewDefault(nil), node, nil, SelectAll)
 	require.NoError(err)
 
 	require.Equal(
@@ -370,7 +370,7 @@ func TestResolveOrderByLiterals(t *testing.T) {
 		plan.NewResolvedTable(table, nil, nil),
 	)
 
-	_, err = f.Apply(sql.NewEmptyContext(), NewDefault(nil), node, nil)
+	_, err = f.Apply(sql.NewEmptyContext(), NewDefault(nil), node, nil, SelectAll)
 	require.Error(err)
 	require.True(ErrOrderByColumnIndex.Is(err))
 }
